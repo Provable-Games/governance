@@ -1,28 +1,23 @@
-# Governance Stack - Backend
+# Governance Stack
 
-Backend services for the Starknet governance application, including indexing, databases, and REST API.
+Full-stack Starknet governance application with backend services and frontend UI.
 
 ## Architecture
 
-This repository contains the core governance backend services:
+This repository contains the complete governance stack:
 
 - **db**: PostgreSQL database for governance data (proposals, votes, delegates)
 - **indexer**: Apibara-based indexer for OpenZeppelin Governor events
-- **api**: Custom Express REST API serving governance data only
-
-### Separate Repositories & Services
-
-- **swaps-indexer + swaps-db + swaps-api**: Deployed separately in its own repository with its own database and API
-- **ui**: Frontend deployed separately (Vercel/Netlify)
+- **api**: Express REST API serving governance data
+- **ui**: React + Vite frontend for interacting with the governance system
 
 ### Architecture Benefits
 
-This split architecture provides:
-- **Performance**: Governance queries are fast and not impacted by swap data volume
-- **Scalability**: Each service can be scaled independently
-- **Reliability**: Governance remains available even if swaps service has issues
-- **Maintenance**: Simpler to manage, backup, and optimize each service separately
-- **Deployment**: Independent deployment cycles for each service
+This monorepo structure provides:
+- **Cohesion**: All governance components in one place for easier development
+- **Version Control**: Frontend and backend changes can be coordinated in single commits
+- **Local Development**: Full stack runs together with docker-compose
+- **Independent Deployment**: Services can still be deployed separately to different platforms
 
 ## Quick Start
 
@@ -46,21 +41,27 @@ This split architecture provides:
    VOTES_TOKEN_ADDRESS=0x...
    ```
 
-3. **Start all backend services:**
+3. **Start backend services with docker-compose:**
    ```bash
    docker-compose up -d
    ```
 
-4. **View logs:**
+4. **Start the UI (in a separate terminal):**
+   ```bash
+   cd ui
+   npm install
+   npm run dev
+   ```
+
+5. **View logs:**
    ```bash
    docker-compose logs -f
    ```
 
-5. **Services will be running at:**
+6. **Services will be running at:**
+   - UI: http://localhost:5173 (Vite dev server)
    - API: http://localhost:4000
-   - Governance DB: localhost:5432
-
-   **Note**: The UI is deployed separately (configure it to point to your API URL)
+   - Database: localhost:5432
 
 ### Useful Commands
 
@@ -81,28 +82,31 @@ docker-compose logs -f api
 
 ## Production Deployment
 
-This repository deploys only the governance backend services. The swaps services and ui are deployed separately.
+This repository contains both backend and frontend, deployed to different platforms:
 
-### Railway Deployment (Governance Backend)
+### Backend Deployment (Railway/Fly.io)
 
-Deploy these 3 services to Railway:
-1. **PostgreSQL database** (governance data only)
-2. **Governance indexer** (from this GitHub repo)
-3. **Governance API** (from this GitHub repo)
+Deploy these 3 backend services:
+1. **PostgreSQL database** (managed database service)
+2. **indexer** (from `./indexer` directory)
+3. **api** (from `./api` directory)
 
 For detailed deployment instructions, see **[DEPLOYMENT.md](./DEPLOYMENT.md)**.
 
-### External Service Configuration
+### Frontend Deployment (Vercel/Netlify)
 
-**Swaps Services** (separate repository):
-- Deploy swaps-indexer + swaps-db + swaps-api in a separate Railway project or repository
-- These services handle all swap and price data independently
+Deploy the UI from the `./ui` directory:
+- **Platform**: Vercel, Netlify, or any static host
+- **Build command**: `npm run build`
+- **Output directory**: `dist`
+- **Environment variable**: `VITE_API_URL=https://your-api-domain.railway.app`
 
-**Governance UI** (deployed on Vercel/Netlify):
-- Set environment variable: `VITE_API_URL=https://your-api.railway.app`
+### API CORS Configuration
 
-**API CORS Configuration**:
-- Update `CORS_ORIGIN` to allow your UI domain: `CORS_ORIGIN=https://your-ui-domain.vercel.app`
+Update the API's `CORS_ORIGIN` environment variable to allow your UI domain:
+```
+CORS_ORIGIN=https://your-ui-domain.vercel.app
+```
 
 ## API Endpoints
 
@@ -120,8 +124,6 @@ The governance API provides the following endpoints:
 - `GET /api/governance/votes/address/:address` - Get votes by voter address
 
 See `api/README.md` for detailed API documentation.
-
-**Note**: Swaps/price data is served by a separate API deployed with the swaps-indexer.
 
 ## Environment Variables
 
@@ -165,10 +167,12 @@ governance/
 │   │   └── index.ts
 │   ├── Dockerfile
 │   └── package.json
-├── ui/         # React + Vite frontend (deployed separately)
+├── ui/         # React + Vite frontend
 │   ├── src/
+│   ├── public/
+│   ├── vite.config.ts
 │   └── package.json
-├── docker-compose.yml     # Local development setup (backend only)
+├── docker-compose.yml     # Local development setup (backend services)
 ├── .env.example          # Environment variables template
 ├── DEPLOYMENT.md         # Comprehensive deployment guide
 └── README.md
@@ -204,22 +208,26 @@ curl http://localhost:4000/api/governance/stats/total-votes | jq
 
 Each service can be developed and tested independently:
 
-**Governance API:**
+**API:**
 ```bash
 cd api
 npm install
 npm run dev  # Runs on port 4000
 ```
 
-**Governance Indexer:**
+**Indexer:**
 ```bash
 cd indexer
 npm install
 npm run dev
 ```
 
-**Governance UI:**
-The UI is maintained in a separate repository/deployment. See that repository's README for local development instructions.
+**UI:**
+```bash
+cd ui
+npm install
+npm run dev  # Runs on port 5173
+```
 
 ### Database Access
 
