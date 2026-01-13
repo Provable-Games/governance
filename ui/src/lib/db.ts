@@ -93,18 +93,44 @@ export async function getVotesForProposal(proposalId: string) {
   >(`/api/governance/proposals/${proposalId}/votes`);
 }
 
-// Note: These functions query proposal state changes that aren't currently
-// exposed in the API. The proposal state field should be used instead.
 export async function getProposalQueued(proposalId: string) {
-  // TODO: Add endpoint for queued proposal details if needed
-  // For now, check proposal.state === 'Queued'
-  return null;
+  try {
+    return await fetchAPI<{
+      event_id: string;
+      proposal_id: string;
+      eta_seconds: string;
+      proposal_id_hex: string;
+    }>(`/api/governance/proposals/${proposalId}/queued`);
+  } catch (error) {
+    // Return null if proposal hasn't been queued (404)
+    return null;
+  }
 }
 
 export async function getProposalExecuted(proposalId: string) {
-  // TODO: Add endpoint for executed proposal details if needed
-  // For now, check proposal.state === 'Executed'
-  return null;
+  try {
+    return await fetchAPI<{
+      event_id: string;
+      proposal_id: string;
+      proposal_id_hex: string;
+    }>(`/api/governance/proposals/${proposalId}/executed`);
+  } catch (error) {
+    // Return null if proposal hasn't been executed (404)
+    return null;
+  }
+}
+
+export async function getProposalCanceled(proposalId: string) {
+  try {
+    return await fetchAPI<{
+      event_id: string;
+      proposal_id: string;
+      proposal_id_hex: string;
+    }>(`/api/governance/proposals/${proposalId}/canceled`);
+  } catch (error) {
+    // Return null if proposal hasn't been canceled (404)
+    return null;
+  }
 }
 
 export async function getVotesByVoter(voterAddress: string) {

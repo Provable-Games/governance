@@ -401,4 +401,113 @@ router.get('/votes/address/:address', async (req, res, next) => {
   }
 });
 
+// GET /api/governance/proposals/:id/queued
+// Returns queued information for a specific proposal
+router.get('/proposals/:id/queued', async (req, res, next) => {
+  try {
+    const proposalId = req.params.id;
+    const cacheKey = `proposals:${proposalId}:queued`;
+    const cached = getCached(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
+    const result = await governancePool.query(`
+      SELECT
+        event_id,
+        proposal_id::TEXT,
+        eta_seconds::TEXT
+      FROM proposal_queued
+      WHERE proposal_id::TEXT = $1
+    `, [proposalId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Proposal not queued or not found' });
+    }
+
+    // Add hex conversions
+    const row = {
+      ...result.rows[0],
+      proposal_id_hex: numericToHex(result.rows[0].proposal_id),
+    };
+
+    setCache(cacheKey, row);
+    res.json(row);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/governance/proposals/:id/executed
+// Returns execution information for a specific proposal
+router.get('/proposals/:id/executed', async (req, res, next) => {
+  try {
+    const proposalId = req.params.id;
+    const cacheKey = `proposals:${proposalId}:executed`;
+    const cached = getCached(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
+    const result = await governancePool.query(`
+      SELECT
+        event_id,
+        proposal_id::TEXT
+      FROM proposal_executed
+      WHERE proposal_id::TEXT = $1
+    `, [proposalId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Proposal not executed or not found' });
+    }
+
+    // Add hex conversions
+    const row = {
+      ...result.rows[0],
+      proposal_id_hex: numericToHex(result.rows[0].proposal_id),
+    };
+
+    setCache(cacheKey, row);
+    res.json(row);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/governance/proposals/:id/canceled
+// Returns cancellation information for a specific proposal
+router.get('/proposals/:id/canceled', async (req, res, next) => {
+  try {
+    const proposalId = req.params.id;
+    const cacheKey = `proposals:${proposalId}:canceled`;
+    const cached = getCached(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
+    const result = await governancePool.query(`
+      SELECT
+        event_id,
+        proposal_id::TEXT
+      FROM proposal_canceled
+      WHERE proposal_id::TEXT = $1
+    `, [proposalId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Proposal not canceled or not found' });
+    }
+
+    // Add hex conversions
+    const row = {
+      ...result.rows[0],
+      proposal_id_hex: numericToHex(result.rows[0].proposal_id),
+    };
+
+    setCache(cacheKey, row);
+    res.json(row);
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

@@ -117,6 +117,9 @@ The governance API provides the following endpoints:
 - `GET /api/governance/proposals/:id` - Get proposal details
 - `GET /api/governance/proposals/:id/votes` - Get votes for a proposal
 - `GET /api/governance/proposals/:id/calls` - Get proposal actions
+- `GET /api/governance/proposals/:id/queued` - Get queued status and ETA for a proposal
+- `GET /api/governance/proposals/:id/executed` - Get execution status for a proposal
+- `GET /api/governance/proposals/:id/canceled` - Get cancellation status for a proposal
 - `GET /api/governance/delegates` - List all delegates
 - `GET /api/governance/delegates/:address` - Get delegate info
 - `GET /api/governance/delegations/:address` - Get delegation info

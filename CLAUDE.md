@@ -178,6 +178,9 @@ Base URL: `/api/governance`
 - `GET /proposals/:id` - Get proposal details
 - `GET /proposals/:id/votes` - Get votes for a proposal
 - `GET /proposals/:id/calls` - Get proposal action calls
+- `GET /proposals/:id/queued` - Get queued status and ETA for a proposal
+- `GET /proposals/:id/executed` - Get execution status for a proposal
+- `GET /proposals/:id/canceled` - Get cancellation status for a proposal
 
 ### Delegates
 - `GET /delegates` - List all delegates with voting power
