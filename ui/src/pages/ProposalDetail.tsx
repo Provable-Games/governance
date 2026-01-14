@@ -42,6 +42,7 @@ import { mainnetTokens } from "@/lib/utils/mainnetTokens";
 import { getDelegateProfile } from "@/lib/delegateProfiles";
 import GOVERNOR_ABI from "@/lib/abis/governor";
 import { GOVERNOR_ADDRESS } from "@/lib/constants";
+import { useToast } from "@/hooks/use-toast";
 
 export function ProposalDetail() {
   const { id } = useParams();
@@ -50,6 +51,7 @@ export function ProposalDetail() {
   const { castVote, queueProposal, executeProposal } = useGovernor();
   const { getPastVotes, getPastTotalSupply } = useToken();
   const { fireConfetti } = useConfetti();
+  const { toast } = useToast();
   const [selectedVote, setSelectedVote] = useState<VoteType | null>(null);
   const [isVoting, setIsVoting] = useState(false);
   const [isQueueing, setIsQueueing] = useState(false);
@@ -296,14 +298,28 @@ export function ProposalDetail() {
 
     setIsVoting(true);
     try {
-      await castVote(id, voteType);
+      const txHash = await castVote(id, voteType);
       setSelectedVote(voteType);
       setHasVoted(true);
       setUserVote(voteType);
       // Fire confetti on successful vote!
       fireConfetti();
+      toast({
+        title: "Vote cast successfully!",
+        description: txHash
+          ? `Transaction hash: ${txHash.slice(0, 10)}...${txHash.slice(-8)}`
+          : "Your vote has been recorded on the blockchain.",
+      });
     } catch (error) {
       console.error("Failed to cast vote:", error);
+      toast({
+        variant: "destructive",
+        title: "Failed to cast vote",
+        description:
+          error instanceof Error
+            ? error.message
+            : "An error occurred while casting your vote",
+      });
     } finally {
       setIsVoting(false);
     }
@@ -340,13 +356,27 @@ export function ProposalDetail() {
       const serializedDescription = calldataArray.slice(1).map(String); // Skip the first element and convert to strings
       const descriptionHash = hash.computeHashOnElements(serializedDescription);
 
-      await queueProposal(transformedCalls, descriptionHash);
+      const txHash = await queueProposal(transformedCalls, descriptionHash);
       fireConfetti();
+      toast({
+        title: "Proposal queued successfully!",
+        description: txHash
+          ? `Transaction hash: ${txHash.slice(0, 10)}...${txHash.slice(-8)}`
+          : "The proposal has been queued for execution.",
+      });
 
       // Refresh proposal data to update status
-      window.location.reload();
+      setTimeout(() => window.location.reload(), 2000);
     } catch (error) {
       console.error("Failed to queue proposal:", error);
+      toast({
+        variant: "destructive",
+        title: "Failed to queue proposal",
+        description:
+          error instanceof Error
+            ? error.message
+            : "An error occurred while queueing the proposal",
+      });
     } finally {
       setIsQueueing(false);
     }
@@ -383,13 +413,27 @@ export function ProposalDetail() {
       const serializedDescription = calldataArray.slice(1).map(String); // Skip the first element and convert to strings
       const descriptionHash = hash.computeHashOnElements(serializedDescription);
 
-      await executeProposal(transformedCalls, descriptionHash);
+      const txHash = await executeProposal(transformedCalls, descriptionHash);
       fireConfetti();
+      toast({
+        title: "Proposal executed successfully!",
+        description: txHash
+          ? `Transaction hash: ${txHash.slice(0, 10)}...${txHash.slice(-8)}`
+          : "The proposal has been executed on-chain.",
+      });
 
       // Refresh proposal data to update status
-      window.location.reload();
+      setTimeout(() => window.location.reload(), 2000);
     } catch (error) {
       console.error("Failed to execute proposal:", error);
+      toast({
+        variant: "destructive",
+        title: "Failed to execute proposal",
+        description:
+          error instanceof Error
+            ? error.message
+            : "An error occurred while executing the proposal",
+      });
     } finally {
       setIsExecuting(false);
     }

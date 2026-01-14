@@ -18,18 +18,32 @@ import {
 } from "lucide-react";
 import { useGovernor } from "@/hooks/useGovernor";
 import { useConfetti } from "@/hooks/useConfetti";
-import { type Call, uint256 } from "starknet";
+import { type Call } from "starknet";
 import { GOVERNANCE_PARAMS } from "@/lib/constants";
-import { mainnetTokens } from "@/lib/utils/mainnetTokens";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useAccount } from "@starknet-react/core";
+import {
+  getEntrypointName,
+  getContractName,
+} from "@/lib/contractMappings";
+import {
+  parseRawCalls,
+  parseTransferCalldata,
+  parseTransferDisplay,
+  parseEkuboMintDisplay,
+  parseEkuboClearDisplay,
+  formatAddress,
+} from "@/lib/utils/callParsers";
+import { useToast } from "@/hooks/use-toast";
 
 export function CreateProposal() {
   const [description, setDescription] = useState("");
   const [calls, setCalls] = useState<Call[]>([]);
   const [isAddingCall, setIsAddingCall] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [inputMode, setInputMode] = useState<"manual" | "raw">("manual");
+  const [rawCallsInput, setRawCallsInput] = useState("");
 
   // Form state for new call
   const [newCall, setNewCall] = useState<Call>({
@@ -42,28 +56,7 @@ export function CreateProposal() {
   const { createProposal } = useGovernor();
   const { fireConfetti } = useConfetti();
   const { isConnected } = useAccount();
-
-  const parseTransferCalldata = (input: string): string[] => {
-    // Expected format: "recipient_address, amount"
-    // Transfer calldata needs: [recipient, amount_low, amount_high]
-    const parts = input
-      .split(",")
-      .map((v) => v.trim())
-      .filter((v) => v);
-
-    if (parts.length !== 2) {
-      throw new Error(
-        "Transfer requires 2 parameters: recipient address and amount"
-      );
-    }
-
-    const [recipient, amountStr] = parts;
-
-    // Convert amount to u256 (low, high parts)
-    const amount = uint256.bnToUint256(amountStr);
-
-    return [recipient, amount.low.toString(), amount.high.toString()];
-  };
+  const { toast } = useToast();
 
   const addCall = () => {
     if (newCall.contractAddress && newCall.entrypoint) {
@@ -98,9 +91,12 @@ export function CreateProposal() {
         setIsAddingCall(false);
       } catch (error) {
         console.error("Failed to parse calldata:", error);
-        alert(
-          error instanceof Error ? error.message : "Failed to parse calldata"
-        );
+        toast({
+          variant: "destructive",
+          title: "Failed to parse calldata",
+          description:
+            error instanceof Error ? error.message : "Failed to parse calldata",
+        });
       }
     }
   };
@@ -109,91 +105,49 @@ export function CreateProposal() {
     setCalls(calls.filter((_, i) => i !== index));
   };
 
-  const formatAddress = (address: string) => {
-    if (address.length <= 10) return address;
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
-
-  const getTokenInfo = (address: string) => {
-    // Normalize addresses for comparison (remove leading zeros, lowercase)
-    const normalizeAddress = (addr: string) => {
-      return addr.toLowerCase().replace(/^0x0+/, "0x");
-    };
-
-    const normalizedAddress = normalizeAddress(address);
-
-    const token = mainnetTokens.find(
-      (t) => normalizeAddress(t.l2_token_address) === normalizedAddress
-    );
-
-    if (token) {
-      return {
-        name: token.name,
-        symbol: token.symbol,
-        decimals: token.decimals,
-        logo: token.logo_url,
-      };
+  const loadRawCalls = () => {
+    try {
+      const parsedCalls = parseRawCalls(rawCallsInput);
+      setCalls(parsedCalls);
+      setRawCallsInput("");
+      toast({
+        title: "Calls loaded successfully",
+        description: `Successfully loaded ${parsedCalls.length} call(s)`,
+      });
+    } catch (error) {
+      console.error("Failed to parse raw calls:", error);
+      toast({
+        variant: "destructive",
+        title: "Failed to parse raw calls",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to parse raw calls",
+      });
     }
-
-    return {
-      name: "Unknown Token",
-      symbol: "???",
-      decimals: 18,
-      logo: undefined,
-    };
-  };
-
-  const parseTransferDisplay = (call: Call) => {
-    if (call.entrypoint.toLowerCase() !== "transfer") return null;
-
-    if (
-      !call.calldata ||
-      !Array.isArray(call.calldata) ||
-      call.calldata.length < 3
-    ) {
-      return null;
-    }
-
-    const recipient = String(call.calldata[0]);
-    const amountLow = String(call.calldata[1]);
-    const amountHigh = String(call.calldata[2]);
-
-    const tokenInfo = getTokenInfo(call.contractAddress);
-
-    // Reconstruct the u256 amount
-    const amount = uint256.uint256ToBN({ low: amountLow, high: amountHigh });
-
-    // Format amount with commas and convert from wei using token's decimals
-    const decimals = tokenInfo.decimals;
-    const divisor = BigInt(10 ** decimals);
-    const amountInTokens = amount / divisor;
-    const remainder = amount % divisor;
-
-    // Format with up to 6 decimal places
-    const formattedAmount =
-      remainder > 0n
-        ? `${amountInTokens.toLocaleString()}.${remainder
-            .toString()
-            .padStart(decimals, "0")
-            .slice(0, 6)}`
-        : amountInTokens.toLocaleString();
-
-    return {
-      recipient,
-      amount: formattedAmount,
-      tokenName: tokenInfo.name,
-      tokenSymbol: tokenInfo.symbol,
-      tokenLogo: tokenInfo.logo,
-    };
   };
 
   const handleSubmit = async () => {
     try {
-      await createProposal(calls, description);
+      const txHash = await createProposal(calls, description);
       // Fire confetti on successful proposal creation!
       fireConfetti();
+      toast({
+        title: "Proposal created successfully!",
+        description: txHash
+          ? `Transaction hash: ${txHash.slice(0, 10)}...${txHash.slice(-8)}`
+          : "Your proposal has been submitted to the blockchain.",
+      });
     } catch (error) {
       console.error("Failed to create proposal:", error);
+      toast({
+        variant: "destructive",
+        title: "Failed to create proposal",
+        description:
+          error instanceof Error
+            ? error.message
+            : "An error occurred while creating the proposal",
+      });
     }
   };
 
@@ -275,34 +229,130 @@ Brief overview of what this proposal aims to achieve.`}
 
       {/* Execution Calls Section */}
       <div className="main-container">
-        <div className="flex items-center gap-2 mb-4">
-          <Code className="h-6 w-6 text-[#FFE97F]" />
-          <h2 className="text-2xl font-['Cinzel'] font-bold text-white">
-            Execution Calls
-          </h2>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Code className="h-6 w-6 text-[#FFE97F]" />
+            <h2 className="text-2xl font-['Cinzel'] font-bold text-white">
+              Execution Calls
+            </h2>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant={inputMode === "manual" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setInputMode("manual")}
+              className={
+                inputMode === "manual"
+                  ? "btn-gold"
+                  : "border-[rgb(8,62,34)] hover:bg-[rgba(255,233,127,0.1)] hover:border-[#FFE97F]"
+              }
+            >
+              MANUAL
+            </Button>
+            <Button
+              variant={inputMode === "raw" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setInputMode("raw")}
+              className={
+                inputMode === "raw"
+                  ? "btn-gold"
+                  : "border-[rgb(8,62,34)] hover:bg-[rgba(255,233,127,0.1)] hover:border-[#FFE97F]"
+              }
+            >
+              RAW JSON
+            </Button>
+          </div>
         </div>
         <p className="text-sm text-gray-400 mb-4">
-          Define the contract calls that will be executed if this proposal
-          passes
+          {inputMode === "manual"
+            ? "Define the contract calls that will be executed if this proposal passes"
+            : "Paste raw call data in RPC format (as a JSON array)"}
         </p>
 
         <div className="space-y-4">
-          {calls.length === 0 && !isAddingCall && (
-            <div className="text-center py-12 border-2 border-dashed border-[rgb(8,62,34)] rounded-lg">
-              <Code className="h-12 w-12 mx-auto mb-3 text-gray-600" />
-              <p className="text-gray-400 mb-4">No execution calls added yet</p>
-              <Button
-                onClick={() => setIsAddingCall(true)}
-                className="btn-gold"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                ADD CALL
-              </Button>
+          {/* Raw JSON Input Mode */}
+          {inputMode === "raw" && (
+            <div className="border-2 border-[#FFE97F]/50 rounded-lg p-6 space-y-4 bg-[rgba(255,233,127,0.05)]">
+              <div className="space-y-2">
+                <Label
+                  htmlFor="raw-calls"
+                  className="text-gray-300 uppercase text-xs tracking-wider"
+                >
+                  Raw Call Data (JSON Array)
+                </Label>
+                <Textarea
+                  id="raw-calls"
+                  placeholder='[
+  "0x5",
+  "0x42dd777885ad2c116be96d4d634abc90a26a790ffb5871e037dd5ae7d2ec86b",
+  "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e",
+  "0x3",
+  "0x2e0af29598b407c8716b17f6d2795eca1b471413fa03fb145a5e33722184067",
+  "0x42ff1c6ba75138f",
+  "0x0",
+  ...
+]'
+                  className="min-h-[300px] font-mono text-sm bg-[rgba(0,0,0,0.3)] border-[rgb(8,62,34)] focus:border-[#FFE97F]"
+                  value={rawCallsInput}
+                  onChange={(e) => setRawCallsInput(e.target.value)}
+                />
+                <div className="text-xs text-gray-500 space-y-1">
+                  <p>
+                    Format: [num_calls, target, selector, calldata_len,
+                    ...calldata, ...]
+                  </p>
+                  <p>
+                    First element is the number of calls (hex), followed by
+                    call data in sequence.
+                  </p>
+                  <p>
+                    Each call consists of: target address, selector (hex),
+                    calldata length (hex), and calldata items.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={loadRawCalls} className="btn-gold">
+                  LOAD CALLS
+                </Button>
+                {calls.length > 0 && (
+                  <Button
+                    variant="outline"
+                    className="border-red-900 text-red-400 hover:bg-red-900/20"
+                    onClick={() => setCalls([])}
+                  >
+                    CLEAR ALL
+                  </Button>
+                )}
+              </div>
             </div>
           )}
 
+          {/* Manual Input Mode */}
+          {inputMode === "manual" &&
+            calls.length === 0 &&
+            !isAddingCall && (
+              <div className="text-center py-12 border-2 border-dashed border-[rgb(8,62,34)] rounded-lg">
+                <Code className="h-12 w-12 mx-auto mb-3 text-gray-600" />
+                <p className="text-gray-400 mb-4">
+                  No execution calls added yet
+                </p>
+                <Button
+                  onClick={() => setIsAddingCall(true)}
+                  className="btn-gold"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  ADD CALL
+                </Button>
+              </div>
+            )}
+
           {calls.map((call, index) => {
             const transferInfo = parseTransferDisplay(call);
+            const ekuboMintInfo = parseEkuboMintDisplay(call);
+            const ekuboClearInfo = parseEkuboClearDisplay(call);
+            const entrypointName = getEntrypointName(call.entrypoint);
+            const contractName = getContractName(call.contractAddress);
 
             return (
               <div
@@ -316,8 +366,16 @@ Brief overview of what this proposal aims to achieve.`}
                       variant="outline"
                       className="border-[#FFE97F] text-[#FFE97F]"
                     >
-                      {call.entrypoint}
+                      {entrypointName}
                     </Badge>
+                    {contractName && (
+                      <Badge
+                        variant="outline"
+                        className="border-purple-400 text-purple-400"
+                      >
+                        {contractName}
+                      </Badge>
+                    )}
                   </div>
                   <Button
                     variant="ghost"
@@ -329,7 +387,337 @@ Brief overview of what this proposal aims to achieve.`}
                   </Button>
                 </div>
 
-                {transferInfo ? (
+                {ekuboMintInfo ? (
+                  // Enhanced Ekubo mint_and_deposit display
+                  <div className="space-y-3">
+                    <div className="relative overflow-hidden rounded-lg border border-purple-400/40 bg-gradient-to-br from-[rgba(168,85,247,0.15)] to-[rgba(168,85,247,0.05)]">
+                      <div className="p-5">
+                        <div className="space-y-4">
+                          {/* Pool header with Ekubo logo */}
+                          <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 text-purple-400">
+                              <svg
+                                viewBox="0 0 50 33"
+                                focusable="false"
+                                className="w-full h-full"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  clipRule="evenodd"
+                                  d="M0 7.5C0 3.35787 3.35786 0 7.5 0H42.5C46.6421 0 50 3.35786 50 7.5V25C50 29.1421 46.6421 32.5 42.5 32.5H7.5C3.35786 32.5 0 29.1421 0 25V7.5ZM25 16.25C25 21.7728 20.5228 26.25 15 26.25C9.47715 26.25 5 21.7728 5 16.25C5 10.7272 9.47715 6.25 15 6.25C20.5228 6.25 25 10.7272 25 16.25ZM25 16.25C25 10.7272 29.4772 6.25 35 6.25C40.5228 6.25 45 10.7272 45 16.25C45 21.7728 40.5228 26.25 35 26.25C29.4772 26.25 25 21.7728 25 16.25Z"
+                                  fill="currentColor"
+                                />
+                              </svg>
+                            </div>
+                            <span className="text-sm text-purple-400 uppercase tracking-widest font-semibold">
+                              Add Liquidity to Pool
+                            </span>
+                          </div>
+
+                          {/* Token pair */}
+                          <div className="flex items-center gap-3">
+                            {/* Token 0 */}
+                            <div className="flex items-center gap-2 flex-1">
+                              {ekuboMintInfo.token0.logo ? (
+                                <img
+                                  src={ekuboMintInfo.token0.logo}
+                                  alt={ekuboMintInfo.token0.symbol}
+                                  className="h-10 w-10 rounded-full border-2 border-purple-400/30"
+                                />
+                              ) : (
+                                <div className="h-10 w-10 rounded-full border-2 border-purple-400/30 bg-[rgba(0,0,0,0.5)] flex items-center justify-center">
+                                  <Coins className="h-5 w-5 text-purple-400" />
+                                </div>
+                              )}
+                              <div>
+                                <div className="font-semibold text-white text-lg">
+                                  {ekuboMintInfo.token0.symbol}
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  {ekuboMintInfo.token0.name}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="text-3xl text-purple-400 font-bold">
+                              ↔
+                            </div>
+
+                            {/* Token 1 */}
+                            <div className="flex items-center gap-2 flex-1">
+                              {ekuboMintInfo.token1.logo ? (
+                                <img
+                                  src={ekuboMintInfo.token1.logo}
+                                  alt={ekuboMintInfo.token1.symbol}
+                                  className="h-10 w-10 rounded-full border-2 border-purple-400/30"
+                                />
+                              ) : (
+                                <div className="h-10 w-10 rounded-full border-2 border-purple-400/30 bg-[rgba(0,0,0,0.5)] flex items-center justify-center">
+                                  <Coins className="h-5 w-5 text-purple-400" />
+                                </div>
+                              )}
+                              <div>
+                                <div className="font-semibold text-white text-lg">
+                                  {ekuboMintInfo.token1.symbol}
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  {ekuboMintInfo.token1.name}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Min Liquidity Warning */}
+                          <div
+                            className={`mt-3 p-3 rounded border ${
+                              ekuboMintInfo.minLiquidity === "0" ||
+                              ekuboMintInfo.minLiquidity === "0x0"
+                                ? "bg-green-900/20 border-green-400/30"
+                                : "bg-red-900/20 border-red-400/40"
+                            }`}
+                          >
+                            <div className="flex items-start gap-2">
+                              {ekuboMintInfo.minLiquidity === "0" ||
+                              ekuboMintInfo.minLiquidity === "0x0" ? (
+                                <svg
+                                  className="h-5 w-5 text-green-400 flex-shrink-0 mt-0.5"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                                  />
+                                </svg>
+                              ) : (
+                                <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
+                              )}
+                              <div className="flex-1">
+                                <div
+                                  className={`font-semibold text-sm ${
+                                    ekuboMintInfo.minLiquidity === "0" ||
+                                    ekuboMintInfo.minLiquidity === "0x0"
+                                      ? "text-green-400"
+                                      : "text-red-400"
+                                  }`}
+                                >
+                                  Min Liquidity:{" "}
+                                  <span className="font-mono">
+                                    {ekuboMintInfo.minLiquidity}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-400 mt-1">
+                                  {ekuboMintInfo.minLiquidity === "0" ||
+                                  ekuboMintInfo.minLiquidity === "0x0"
+                                    ? "Correctly set to 0 for governance proposals"
+                                    : "⚠ Warning: Should be set to 0 for governance proposals to avoid transaction failures"}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Technical details */}
+                    <details className="group">
+                      <summary className="cursor-pointer text-xs text-gray-500 hover:text-purple-400 uppercase tracking-wider flex items-center gap-2 transition-colors">
+                        <Code className="h-3.5 w-3.5" />
+                        Technical Details
+                        <svg
+                          className="h-3 w-3 transition-transform group-open:rotate-180"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </summary>
+                      <div className="mt-3 p-4 bg-[rgba(0,0,0,0.3)] border border-[rgb(8,62,34)] rounded space-y-3 text-xs">
+                        <div>
+                          <span className="text-gray-500 uppercase tracking-wider">
+                            Contract Address:
+                          </span>
+                          <div className="font-mono text-gray-300 break-all mt-1">
+                            {call.contractAddress}
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <span className="text-gray-500 uppercase tracking-wider">
+                              Token 0:
+                            </span>
+                            <div className="font-mono text-gray-300 break-all mt-1">
+                              {ekuboMintInfo.token0.address}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 uppercase tracking-wider">
+                              Token 1:
+                            </span>
+                            <div className="font-mono text-gray-300 break-all mt-1">
+                              {ekuboMintInfo.token1.address}
+                            </div>
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500 uppercase tracking-wider">
+                            Min Liquidity:
+                          </span>
+                          <div className="font-mono text-gray-300 mt-1">
+                            {ekuboMintInfo.minLiquidity}
+                          </div>
+                        </div>
+                        {call.entrypoint.startsWith("0x") && (
+                          <div>
+                            <span className="text-gray-500 uppercase tracking-wider">
+                              Selector:
+                            </span>
+                            <div className="font-mono p-2 bg-[rgba(0,0,0,0.5)] border border-[rgb(8,62,34)] rounded text-gray-400 break-all mt-1">
+                              {call.entrypoint}
+                            </div>
+                          </div>
+                        )}
+                        <div>
+                          <span className="text-gray-500 uppercase tracking-wider">
+                            Raw Calldata:
+                          </span>
+                          <div className="font-mono p-2 bg-[rgba(0,0,0,0.5)] border border-[rgb(8,62,34)] rounded text-gray-400 break-all mt-1">
+                            {Array.isArray(call.calldata)
+                              ? call.calldata.join(", ")
+                              : String(call.calldata || "")}
+                          </div>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
+                ) : ekuboClearInfo ? (
+                  // Enhanced Ekubo clear display
+                  <div className="space-y-3">
+                    <div className="relative overflow-hidden rounded-lg border border-purple-400/40 bg-gradient-to-br from-[rgba(168,85,247,0.15)] to-[rgba(168,85,247,0.05)]">
+                      <div className="p-5">
+                        <div className="space-y-4">
+                          {/* Clear header with Ekubo logo */}
+                          <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 text-purple-400">
+                              <svg
+                                viewBox="0 0 50 33"
+                                focusable="false"
+                                className="w-full h-full"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  clipRule="evenodd"
+                                  d="M0 7.5C0 3.35787 3.35786 0 7.5 0H42.5C46.6421 0 50 3.35786 50 7.5V25C50 29.1421 46.6421 32.5 42.5 32.5H7.5C3.35786 32.5 0 29.1421 0 25V7.5ZM25 16.25C25 21.7728 20.5228 26.25 15 26.25C9.47715 26.25 5 21.7728 5 16.25C5 10.7272 9.47715 6.25 15 6.25C20.5228 6.25 25 10.7272 25 16.25ZM25 16.25C25 10.7272 29.4772 6.25 35 6.25C40.5228 6.25 45 10.7272 45 16.25C45 21.7728 40.5228 26.25 35 26.25C29.4772 26.25 25 21.7728 25 16.25Z"
+                                  fill="currentColor"
+                                />
+                              </svg>
+                            </div>
+                            <span className="text-sm text-purple-400 uppercase tracking-widest font-semibold">
+                              Clear Token Balance
+                            </span>
+                          </div>
+
+                          {/* Token display */}
+                          <div className="flex items-center gap-3">
+                            {ekuboClearInfo.token.logo ? (
+                              <div className="relative">
+                                <div className="absolute inset-0 bg-purple-400/20 blur-xl rounded-full"></div>
+                                <img
+                                  src={ekuboClearInfo.token.logo}
+                                  alt={ekuboClearInfo.token.symbol}
+                                  className="relative h-12 w-12 rounded-full border-2 border-purple-400/30"
+                                />
+                              </div>
+                            ) : (
+                              <div className="relative">
+                                <div className="absolute inset-0 bg-purple-400/20 blur-xl rounded-full"></div>
+                                <div className="relative h-12 w-12 rounded-full border-2 border-purple-400/30 bg-[rgba(0,0,0,0.5)] flex items-center justify-center">
+                                  <Coins className="h-6 w-6 text-purple-400" />
+                                </div>
+                              </div>
+                            )}
+                            <div className="flex-1">
+                              <div className="font-['Cinzel'] text-2xl font-black text-white tracking-tight">
+                                {ekuboClearInfo.token.symbol}
+                              </div>
+                              <div className="text-sm text-gray-400">
+                                {ekuboClearInfo.token.name}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Technical details */}
+                    <details className="group">
+                      <summary className="cursor-pointer text-xs text-gray-500 hover:text-purple-400 uppercase tracking-wider flex items-center gap-2 transition-colors">
+                        <Code className="h-3.5 w-3.5" />
+                        Technical Details
+                        <svg
+                          className="h-3 w-3 transition-transform group-open:rotate-180"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </summary>
+                      <div className="mt-3 p-4 bg-[rgba(0,0,0,0.3)] border border-[rgb(8,62,34)] rounded space-y-3 text-xs">
+                        <div>
+                          <span className="text-gray-500 uppercase tracking-wider">
+                            Contract Address:
+                          </span>
+                          <div className="font-mono text-gray-300 break-all mt-1">
+                            {call.contractAddress}
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500 uppercase tracking-wider">
+                            Token Address:
+                          </span>
+                          <div className="font-mono text-gray-300 break-all mt-1">
+                            {ekuboClearInfo.token.address}
+                          </div>
+                        </div>
+                        {call.entrypoint.startsWith("0x") && (
+                          <div>
+                            <span className="text-gray-500 uppercase tracking-wider">
+                              Selector:
+                            </span>
+                            <div className="font-mono p-2 bg-[rgba(0,0,0,0.5)] border border-[rgb(8,62,34)] rounded text-gray-400 break-all mt-1">
+                              {call.entrypoint}
+                            </div>
+                          </div>
+                        )}
+                        <div>
+                          <span className="text-gray-500 uppercase tracking-wider">
+                            Raw Calldata:
+                          </span>
+                          <div className="font-mono p-2 bg-[rgba(0,0,0,0.5)] border border-[rgb(8,62,34)] rounded text-gray-400 break-all mt-1">
+                            {Array.isArray(call.calldata)
+                              ? call.calldata.join(", ")
+                              : String(call.calldata || "")}
+                          </div>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
+                ) : transferInfo ? (
                   // Enhanced transfer call display
                   <div className="space-y-3">
                     {/* Main transfer card */}
@@ -391,8 +779,18 @@ Brief overview of what this proposal aims to achieve.`}
                             {/* Recipient */}
                             <div className="flex items-center gap-2 p-3 bg-[rgba(0,0,0,0.3)] border border-[rgb(8,62,34)] rounded">
                               <div className="flex-1 min-w-0">
-                                <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                                  Recipient
+                                <div className="flex items-center gap-2 mb-1">
+                                  <div className="text-xs text-gray-500 uppercase tracking-wider">
+                                    Recipient
+                                  </div>
+                                  {getContractName(transferInfo.recipient) && (
+                                    <Badge
+                                      variant="outline"
+                                      className="border-purple-400 text-purple-400 text-xs py-0"
+                                    >
+                                      {getContractName(transferInfo.recipient)}
+                                    </Badge>
+                                  )}
                                 </div>
                                 <div className="font-mono text-sm text-[#FFE97F] truncate">
                                   {transferInfo.recipient}
@@ -458,6 +856,16 @@ Brief overview of what this proposal aims to achieve.`}
                             {call.contractAddress}
                           </div>
                         </div>
+                        {call.entrypoint.startsWith("0x") && (
+                          <div>
+                            <span className="text-gray-500 uppercase tracking-wider">
+                              Selector:
+                            </span>
+                            <div className="font-mono p-2 bg-[rgba(0,0,0,0.5)] border border-[rgb(8,62,34)] rounded text-gray-400 break-all mt-1">
+                              {call.entrypoint}
+                            </div>
+                          </div>
+                        )}
                         <div>
                           <span className="text-gray-500 uppercase tracking-wider">
                             Raw Calldata:
@@ -488,10 +896,21 @@ Brief overview of what this proposal aims to achieve.`}
                           Entrypoint:
                         </span>
                         <div className="font-mono mt-1 text-white">
-                          {call.entrypoint}
+                          {entrypointName}
                         </div>
                       </div>
                     </div>
+
+                    {call.entrypoint.startsWith("0x") && (
+                      <div className="text-sm">
+                        <span className="text-gray-500 uppercase text-xs tracking-wider">
+                          Selector:
+                        </span>
+                        <div className="font-mono mt-1 p-3 bg-[rgba(0,0,0,0.5)] border border-[rgb(8,62,34)] rounded text-xs break-all text-gray-400">
+                          {call.entrypoint}
+                        </div>
+                      </div>
+                    )}
 
                     {call.calldata &&
                       Array.isArray(call.calldata) &&
@@ -513,7 +932,7 @@ Brief overview of what this proposal aims to achieve.`}
             );
           })}
 
-          {isAddingCall && (
+          {inputMode === "manual" && isAddingCall && (
             <div className="border-2 border-[#FFE97F]/50 rounded-lg p-6 space-y-4 bg-[rgba(255,233,127,0.05)]">
               <div className="font-['Cinzel'] font-bold text-lg text-[#FFE97F]">
                 New Call
@@ -604,7 +1023,7 @@ Brief overview of what this proposal aims to achieve.`}
             </div>
           )}
 
-          {calls.length > 0 && !isAddingCall && (
+          {inputMode === "manual" && calls.length > 0 && !isAddingCall && (
             <Button
               variant="outline"
               className="w-full border-[rgb(8,62,34)] hover:bg-[rgba(255,233,127,0.1)] hover:border-[#FFE97F] hover:text-[#FFE97F]"

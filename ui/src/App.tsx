@@ -13,6 +13,7 @@ import {
 } from "@starknet-react/core";
 import { mainnet, type Chain } from "@starknet-react/chains";
 import { ControllerConnector } from "@cartridge/connector";
+import { Toaster } from "@/components/ui/toaster";
 
 const controllerConnector = new ControllerConnector({
   preset: "survivor-dao",
@@ -59,6 +60,7 @@ function App() {
           </Route>
         </Routes>
       </Router>
+      <Toaster />
     </StarknetConfig>
   );
 }
