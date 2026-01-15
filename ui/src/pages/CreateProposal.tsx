@@ -23,14 +23,13 @@ import { GOVERNANCE_PARAMS } from "@/lib/constants";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useAccount } from "@starknet-react/core";
-import {
-  getEntrypointName,
-  getContractName,
-} from "@/lib/contractMappings";
+import { getEntrypointName, getContractName } from "@/lib/contractMappings";
 import {
   parseRawCalls,
   parseTransferCalldata,
   parseTransferDisplay,
+  parseApprovalCalldata,
+  parseApprovalDisplay,
   parseEkuboMintDisplay,
   parseEkuboClearDisplay,
   formatAddress,
@@ -66,6 +65,9 @@ export function CreateProposal() {
         // Special handling for transfer calls
         if (newCall.entrypoint.toLowerCase() === "transfer") {
           parsedCalldata = parseTransferCalldata(calldataInput);
+        } else if (newCall.entrypoint.toLowerCase() === "approve") {
+          // Special handling for approval calls
+          parsedCalldata = parseApprovalCalldata(calldataInput);
         } else {
           // Default: parse as comma-separated values
           parsedCalldata = calldataInput
@@ -120,9 +122,7 @@ export function CreateProposal() {
         variant: "destructive",
         title: "Failed to parse raw calls",
         description:
-          error instanceof Error
-            ? error.message
-            : "Failed to parse raw calls",
+          error instanceof Error ? error.message : "Failed to parse raw calls",
       });
     }
   };
@@ -205,7 +205,8 @@ export function CreateProposal() {
                 </div>
               ) : (
                 <p className="text-gray-500 italic">
-                  No description to preview. Write something in edit mode to see the preview.
+                  No description to preview. Write something in edit mode to see
+                  the preview.
                 </p>
               )}
             </div>
@@ -302,8 +303,8 @@ Brief overview of what this proposal aims to achieve.`}
                     ...calldata, ...]
                   </p>
                   <p>
-                    First element is the number of calls (hex), followed by
-                    call data in sequence.
+                    First element is the number of calls (hex), followed by call
+                    data in sequence.
                   </p>
                   <p>
                     Each call consists of: target address, selector (hex),
@@ -329,26 +330,23 @@ Brief overview of what this proposal aims to achieve.`}
           )}
 
           {/* Manual Input Mode */}
-          {inputMode === "manual" &&
-            calls.length === 0 &&
-            !isAddingCall && (
-              <div className="text-center py-12 border-2 border-dashed border-[rgb(8,62,34)] rounded-lg">
-                <Code className="h-12 w-12 mx-auto mb-3 text-gray-600" />
-                <p className="text-gray-400 mb-4">
-                  No execution calls added yet
-                </p>
-                <Button
-                  onClick={() => setIsAddingCall(true)}
-                  className="btn-gold"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  ADD CALL
-                </Button>
-              </div>
-            )}
+          {inputMode === "manual" && calls.length === 0 && !isAddingCall && (
+            <div className="text-center py-12 border-2 border-dashed border-[rgb(8,62,34)] rounded-lg">
+              <Code className="h-12 w-12 mx-auto mb-3 text-gray-600" />
+              <p className="text-gray-400 mb-4">No execution calls added yet</p>
+              <Button
+                onClick={() => setIsAddingCall(true)}
+                className="btn-gold"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                ADD CALL
+              </Button>
+            </div>
+          )}
 
           {calls.map((call, index) => {
             const transferInfo = parseTransferDisplay(call);
+            const approvalInfo = parseApprovalDisplay(call);
             const ekuboMintInfo = parseEkuboMintDisplay(call);
             const ekuboClearInfo = parseEkuboClearDisplay(call);
             const entrypointName = getEntrypointName(call.entrypoint);
@@ -879,8 +877,177 @@ Brief overview of what this proposal aims to achieve.`}
                       </div>
                     </details>
                   </div>
+                ) : approvalInfo ? (
+                  // Enhanced approval call display
+                  <div className="space-y-3">
+                    {/* Main approval card */}
+                    <div className="relative overflow-hidden rounded-lg border border-blue-400/40 bg-gradient-to-br from-[rgba(59,130,246,0.15)] to-[rgba(59,130,246,0.05)]">
+                      <div className="p-5">
+                        <div className="flex items-start gap-4">
+                          {/* Token logo with glow effect */}
+                          <div className="relative flex-shrink-0">
+                            {approvalInfo.tokenLogo ? (
+                              <div className="relative">
+                                <div className="absolute inset-0 bg-blue-400/20 blur-xl rounded-full"></div>
+                                <img
+                                  src={approvalInfo.tokenLogo}
+                                  alt={approvalInfo.tokenSymbol}
+                                  className="relative h-14 w-14 rounded-full border-2 border-blue-400/30"
+                                />
+                              </div>
+                            ) : (
+                              <div className="relative">
+                                <div className="absolute inset-0 bg-blue-400/20 blur-xl rounded-full"></div>
+                                <div className="relative h-14 w-14 rounded-full border-2 border-blue-400/30 bg-[rgba(0,0,0,0.5)] flex items-center justify-center">
+                                  <Coins className="h-7 w-7 text-blue-400" />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Approval details */}
+                          <div className="flex-1 min-w-0">
+                            {/* Token header */}
+                            <div className="flex items-center gap-2 mb-3">
+                              <span className="text-xs text-gray-400 uppercase tracking-widest font-semibold">
+                                Approval
+                              </span>
+                              <ArrowRight className="h-3.5 w-3.5 text-blue-400" />
+                              <span className="text-sm text-white font-semibold">
+                                {approvalInfo.tokenName}
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className="border-blue-400 text-blue-400 text-xs px-2 py-0.5 font-mono"
+                              >
+                                {approvalInfo.tokenSymbol}
+                              </Badge>
+                            </div>
+
+                            {/* Amount display */}
+                            <div className="mb-4">
+                              <div className="flex items-baseline gap-2">
+                                <span className="font-['Cinzel'] text-3xl font-black text-white tracking-tight">
+                                  {approvalInfo.amount}
+                                </span>
+                                {!approvalInfo.isUnlimited && (
+                                  <span className="font-['Cinzel'] text-lg font-bold text-blue-400">
+                                    {approvalInfo.tokenSymbol}
+                                  </span>
+                                )}
+                              </div>
+                              {approvalInfo.isUnlimited && (
+                                <p className="text-xs text-blue-400 mt-1">
+                                  This grants unlimited spending permission
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Spender */}
+                            <div className="flex items-center gap-2 p-3 bg-[rgba(0,0,0,0.3)] border border-[rgb(8,62,34)] rounded">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <div className="text-xs text-gray-500 uppercase tracking-wider">
+                                    Spender
+                                  </div>
+                                  {getContractName(approvalInfo.spender) && (
+                                    <Badge
+                                      variant="outline"
+                                      className="border-purple-400 text-purple-400 text-xs py-0"
+                                    >
+                                      {getContractName(approvalInfo.spender)}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="font-mono text-sm text-blue-400 truncate">
+                                  {approvalInfo.spender}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() =>
+                                  navigator.clipboard.writeText(
+                                    approvalInfo.spender
+                                  )
+                                }
+                                className="flex-shrink-0 p-1.5 hover:bg-[rgba(59,130,246,0.1)] rounded transition-colors"
+                                title="Copy address"
+                              >
+                                <svg
+                                  className="h-4 w-4 text-gray-400"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                  />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Decorative gradient overlay */}
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-blue-400/5 rounded-full blur-3xl -z-10"></div>
+                    </div>
+
+                    {/* Technical details (collapsible) */}
+                    <details className="group">
+                      <summary className="cursor-pointer text-xs text-gray-500 hover:text-blue-400 uppercase tracking-wider flex items-center gap-2 transition-colors">
+                        <Code className="h-3.5 w-3.5" />
+                        Technical Details
+                        <svg
+                          className="h-3 w-3 transition-transform group-open:rotate-180"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </summary>
+                      <div className="mt-3 p-4 bg-[rgba(0,0,0,0.3)] border border-[rgb(8,62,34)] rounded space-y-3 text-xs">
+                        <div>
+                          <span className="text-gray-500 uppercase tracking-wider">
+                            Contract Address:
+                          </span>
+                          <div className="font-mono text-gray-300 break-all mt-1">
+                            {call.contractAddress}
+                          </div>
+                        </div>
+                        {call.entrypoint.startsWith("0x") && (
+                          <div>
+                            <span className="text-gray-500 uppercase tracking-wider">
+                              Selector:
+                            </span>
+                            <div className="font-mono p-2 bg-[rgba(0,0,0,0.5)] border border-[rgb(8,62,34)] rounded text-gray-400 break-all mt-1">
+                              {call.entrypoint}
+                            </div>
+                          </div>
+                        )}
+                        <div>
+                          <span className="text-gray-500 uppercase tracking-wider">
+                            Raw Calldata:
+                          </span>
+                          <div className="font-mono p-2 bg-[rgba(0,0,0,0.5)] border border-[rgb(8,62,34)] rounded text-gray-400 break-all mt-1">
+                            {Array.isArray(call.calldata)
+                              ? call.calldata.join(", ")
+                              : String(call.calldata || "")}
+                          </div>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
                 ) : (
-                  // Standard call display for non-transfer calls
+                  // Standard call display for non-transfer/non-approval calls
                   <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
@@ -986,6 +1153,8 @@ Brief overview of what this proposal aims to achieve.`}
                   placeholder={
                     newCall.entrypoint.toLowerCase() === "transfer"
                       ? "For transfer: recipient_address, amount\nExample: 0x123..., 1000000000000000000"
+                      : newCall.entrypoint.toLowerCase() === "approve"
+                      ? "For approve: spender_address, amount\nExample: 0x123..., 1000000000000000000"
                       : "Enter comma-separated values for calldata"
                   }
                   className="font-mono text-sm bg-[rgba(0,0,0,0.3)] border-[rgb(8,62,34)] focus:border-[#FFE97F]"
@@ -996,6 +1165,12 @@ Brief overview of what this proposal aims to achieve.`}
                   <p className="text-xs text-[#FFE97F]">
                     Transfer calls will automatically convert the amount to u256
                     format
+                  </p>
+                )}
+                {newCall.entrypoint.toLowerCase() === "approve" && (
+                  <p className="text-xs text-blue-400">
+                    Approval calls will automatically convert the amount to u256
+                    format. Use max u256 for unlimited approval.
                   </p>
                 )}
               </div>
@@ -1112,7 +1287,11 @@ Brief overview of what this proposal aims to achieve.`}
             className="w-full btn-gold text-lg py-6"
             disabled={!description || !isConnected}
             onClick={handleSubmit}
-            title={!isConnected ? "Please connect your wallet to submit a proposal" : undefined}
+            title={
+              !isConnected
+                ? "Please connect your wallet to submit a proposal"
+                : undefined
+            }
           >
             <Scroll className="mr-2 h-5 w-5" />
             SUBMIT PROPOSAL

@@ -65,6 +65,18 @@ export interface EkuboClearDisplayInfo {
 }
 
 /**
+ * Approval display info
+ */
+export interface ApprovalDisplayInfo {
+  spender: string;
+  amount: string;
+  tokenName: string;
+  tokenSymbol: string;
+  tokenLogo?: string;
+  isUnlimited: boolean;
+}
+
+/**
  * Get token info by address from mainnet tokens list
  */
 export function getTokenInfo(address: string): TokenInfo {
@@ -325,5 +337,89 @@ export function parseEkuboClearDisplay(
       address: tokenAddress,
       ...tokenInfo,
     },
+  };
+}
+
+/**
+ * Parse approval calldata input for manual entry
+ * Expected format: "spender_address, amount"
+ * Returns: [spender, amount_low, amount_high]
+ */
+export function parseApprovalCalldata(input: string): string[] {
+  const parts = input
+    .split(",")
+    .map((v) => v.trim())
+    .filter((v) => v);
+
+  if (parts.length !== 2) {
+    throw new Error(
+      "Approve requires 2 parameters: spender address and amount"
+    );
+  }
+
+  const [spender, amountStr] = parts;
+
+  // Convert amount to u256 (low, high parts)
+  const amount = uint256.bnToUint256(amountStr);
+
+  return [spender, amount.low.toString(), amount.high.toString()];
+}
+
+/**
+ * Parse a call for enhanced approval display
+ * Returns null if not an approval call or invalid format
+ */
+export function parseApprovalDisplay(call: Call): ApprovalDisplayInfo | null {
+  const entrypointName = getEntrypointName(call.entrypoint).toLowerCase();
+  if (entrypointName !== "approve") return null;
+
+  if (
+    !call.calldata ||
+    !Array.isArray(call.calldata) ||
+    call.calldata.length < 3
+  ) {
+    return null;
+  }
+
+  const spender = String(call.calldata[0]);
+  const amountLow = String(call.calldata[1]);
+  const amountHigh = String(call.calldata[2]);
+
+  const tokenInfo = getTokenInfo(call.contractAddress);
+
+  // Reconstruct the u256 amount
+  const amount = uint256.uint256ToBN({ low: amountLow, high: amountHigh });
+
+  // Check if it's unlimited approval (max u256)
+  const maxU256 = BigInt("0xffffffffffffffffffffffffffffffff"); // u128 max
+  const isUnlimited = BigInt(amountLow) === maxU256 && BigInt(amountHigh) === maxU256;
+
+  let formattedAmount: string;
+  if (isUnlimited) {
+    formattedAmount = "Unlimited";
+  } else {
+    // Format amount with commas and convert from wei using token's decimals
+    const decimals = tokenInfo.decimals;
+    const divisor = BigInt(10 ** decimals);
+    const amountInTokens = amount / divisor;
+    const remainder = amount % divisor;
+
+    // Format with up to 6 decimal places
+    formattedAmount =
+      remainder > 0n
+        ? `${amountInTokens.toLocaleString()}.${remainder
+            .toString()
+            .padStart(decimals, "0")
+            .slice(0, 6)}`
+        : amountInTokens.toLocaleString();
+  }
+
+  return {
+    spender,
+    amount: formattedAmount,
+    tokenName: tokenInfo.name,
+    tokenSymbol: tokenInfo.symbol,
+    tokenLogo: tokenInfo.logo,
+    isUnlimited,
   };
 }

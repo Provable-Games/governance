@@ -11,6 +11,10 @@ export const UPGRADED_GOVERNOR_ADDRESS =
 export const TOKEN_ADDRESS =
   "0x042dd777885ad2c116be96d4d634abc90a26a790ffb5871e037dd5ae7d2ec86b";
 
+// DAO Treasury address (Survivor DAO)
+export const DAO_TREASURY_ADDRESS =
+  "0x041bb7729efa185f2cab327de0a668886302f1d4969e3edf504c4741648f858b";
+
 // Governance parameters
 export const GOVERNANCE_PARAMS = {
   PROPOSAL_THRESHOLD: "50,000 tokens",
