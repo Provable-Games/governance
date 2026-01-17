@@ -169,17 +169,17 @@ export function Proposals() {
   return (
     <div className="space-y-6">
       {/* Header Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 main-container">
-          <h1 className="text-5xl font-['Cinzel'] font-black text-[#FFE97F] mb-3 glow">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="lg:col-span-2 main-container !p-4 sm:!p-8">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-['Cinzel'] font-black text-[#FFE97F] mb-2 sm:mb-3 glow">
             SURVIVOR GOVERNANCE
           </h1>
-          <p className="text-gray-400 text-lg">
+          <p className="text-gray-400 text-base sm:text-lg">
             Vote on active proposals and shape the future of the ecosystem
           </p>
-          <div className="mt-6 flex items-center gap-4">
-            <Link to="/create">
-              <Button className="btn-gold flex items-center gap-2 px-6 py-3 text-sm font-bold uppercase tracking-wider">
+          <div className="mt-4 sm:mt-6 flex items-center gap-4">
+            <Link to="/create" className="w-full sm:w-auto">
+              <Button className="w-full sm:w-auto btn-gold flex items-center justify-center gap-2 px-4 sm:px-6 py-3 text-sm font-bold uppercase tracking-wider">
                 <Scroll className="h-4 w-4" />
                 CREATE PROPOSAL
               </Button>
@@ -188,24 +188,26 @@ export function Proposals() {
         </div>
 
         {/* Stats Card */}
-        <div className="main-container">
-          <div className="text-center">
-            <div className="text-3xl font-['Cinzel'] font-bold text-[#FFE97F] mb-2">
-              {proposals.length}
+        <div className="main-container !p-4 sm:!p-8">
+          <div className="flex flex-row lg:flex-col justify-between lg:justify-start items-center lg:items-stretch text-center lg:text-center gap-4 lg:gap-0">
+            <div>
+              <div className="text-2xl sm:text-3xl font-['Cinzel'] font-bold text-[#FFE97F] mb-1 sm:mb-2">
+                {proposals.length}
+              </div>
+              <div className="text-xs sm:text-sm text-gray-400 uppercase tracking-wider">
+                Total Proposals
+              </div>
             </div>
-            <div className="text-sm text-gray-400 uppercase tracking-wider">
-              Total Proposals
-            </div>
-            <div className="mt-4 space-y-3">
-              <div className="flex justify-between items-center">
+            <div className="flex flex-row lg:flex-col gap-4 lg:gap-0 lg:mt-4 lg:space-y-3">
+              <div className="flex flex-col lg:flex-row justify-between items-center lg:items-center gap-1 lg:gap-0">
                 <span className="text-xs text-gray-500 uppercase tracking-wider">Active</span>
-                <span className="text-xl font-['Cinzel'] font-bold text-[#1aff5c]">
+                <span className="text-lg sm:text-xl font-['Cinzel'] font-bold text-[#1aff5c]">
                   {proposals.filter((p) => p.status === "active").length}
                 </span>
               </div>
-              <div className="flex justify-between items-center">
+              <div className="flex flex-col lg:flex-row justify-between items-center lg:items-center gap-1 lg:gap-0">
                 <span className="text-xs text-gray-500 uppercase tracking-wider">Passed</span>
-                <span className="text-xl font-['Cinzel'] font-bold text-[#FFE97F]">
+                <span className="text-lg sm:text-xl font-['Cinzel'] font-bold text-[#FFE97F]">
                   {proposals.filter((p) => p.status === "succeeded" || p.status === "executed").length}
                 </span>
               </div>
@@ -220,31 +222,31 @@ export function Proposals() {
           <TabsList className="w-full rounded-t-xl rounded-b-none bg-[rgba(24,40,24,0.5)] border-b-2 border-[rgb(8,62,34)]">
             <TabsTrigger
               value="all"
-              className="flex-1 data-[state=active]:bg-[rgba(255,233,127,0.1)] data-[state=active]:text-[#FFE97F]"
+              className="flex-1 text-xs sm:text-sm px-2 sm:px-4 data-[state=active]:bg-[rgba(255,233,127,0.1)] data-[state=active]:text-[#FFE97F]"
             >
               ALL
             </TabsTrigger>
             <TabsTrigger
               value="active"
-              className="flex-1 data-[state=active]:bg-[rgba(255,233,127,0.1)] data-[state=active]:text-[#FFE97F]"
+              className="flex-1 text-xs sm:text-sm px-2 sm:px-4 data-[state=active]:bg-[rgba(255,233,127,0.1)] data-[state=active]:text-[#FFE97F]"
             >
               ACTIVE
             </TabsTrigger>
             <TabsTrigger
               value="passed"
-              className="flex-1 data-[state=active]:bg-[rgba(255,233,127,0.1)] data-[state=active]:text-[#FFE97F]"
+              className="flex-1 text-xs sm:text-sm px-2 sm:px-4 data-[state=active]:bg-[rgba(255,233,127,0.1)] data-[state=active]:text-[#FFE97F]"
             >
               PASSED
             </TabsTrigger>
             <TabsTrigger
               value="failed"
-              className="flex-1 data-[state=active]:bg-[rgba(255,233,127,0.1)] data-[state=active]:text-[#FFE97F]"
+              className="flex-1 text-xs sm:text-sm px-2 sm:px-4 data-[state=active]:bg-[rgba(255,233,127,0.1)] data-[state=active]:text-[#FFE97F]"
             >
               FAILED
             </TabsTrigger>
           </TabsList>
 
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             <TabsContent value="all" className="mt-0">
               {proposals.length === 0 ? (
                 <div className="text-center text-gray-500 py-12">
