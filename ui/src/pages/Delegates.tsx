@@ -100,13 +100,13 @@ export function Delegates() {
 
   return (
     <TooltipProvider>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header Section */}
         <div className="main-container">
-          <h1 className="text-5xl font-['Cinzel'] font-black text-[#FFE97F] mb-3 glow">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-['Cinzel'] font-black text-[#FFE97F] mb-2 sm:mb-3 glow">
             DELEGATE POWER
           </h1>
-          <p className="text-gray-400 text-lg">
+          <p className="text-gray-400 text-base sm:text-lg">
             Help shape the future of <strong>Survivor DAO</strong> by delegating
             your voting power. Delegates govern the <strong>treasury</strong>{" "}
             and influence <strong>game configurations</strong>, ensuring the
@@ -125,20 +125,20 @@ export function Delegates() {
         {/* Your Delegation Card */}
         <div className="main-container">
           <div className="flex items-center gap-2 mb-4">
-            <Crown className="h-6 w-6 text-[#FFE97F]" />
-            <h2 className="text-2xl font-['Cinzel'] font-bold text-white">
+            <Crown className="h-5 w-5 sm:h-6 sm:w-6 text-[#FFE97F]" />
+            <h2 className="text-xl sm:text-2xl font-['Cinzel'] font-bold text-white">
               Your Delegation
             </h2>
           </div>
           {!isConnected ? (
-            <div className="text-center py-8">
-              <Wallet className="h-12 w-12 mx-auto mb-4 text-[#FFE97F]" />
-              <p className="text-gray-400 mb-4">
+            <div className="text-center py-6 sm:py-8">
+              <Wallet className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-4 text-[#FFE97F]" />
+              <p className="text-gray-400 mb-4 text-sm sm:text-base">
                 Connect your wallet to see your voting power and delegate
               </p>
               <Button
                 onClick={() => setWalletModalOpen(true)}
-                className="btn-gold"
+                className="btn-gold w-full sm:w-auto"
               >
                 <Wallet className="h-4 w-4 mr-2" />
                 CONNECT WALLET
@@ -146,28 +146,28 @@ export function Delegates() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-3 gap-4 mb-6 p-6 border border-[rgb(8,62,34)] rounded-lg bg-[rgba(0,0,0,0.3)]">
-                <div>
-                  <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 p-4 sm:p-6 border border-[rgb(8,62,34)] rounded-lg bg-[rgba(0,0,0,0.3)]">
+                <div className="flex sm:block justify-between items-center">
+                  <div className="text-xs text-gray-500 uppercase tracking-wider mb-0 sm:mb-1">
                     Token Balance
                   </div>
-                  <div className="text-2xl font-['Cinzel'] font-bold text-[#FFE97F]">
+                  <div className="text-xl sm:text-2xl font-['Cinzel'] font-bold text-[#FFE97F]">
                     {userBalance}
                   </div>
                 </div>
-                <div>
-                  <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                <div className="flex sm:block justify-between items-center">
+                  <div className="text-xs text-gray-500 uppercase tracking-wider mb-0 sm:mb-1">
                     Voting Power
                   </div>
-                  <div className="text-2xl font-['Cinzel'] font-bold text-[#1aff5c]">
+                  <div className="text-xl sm:text-2xl font-['Cinzel'] font-bold text-[#1aff5c]">
                     {userVotingPower}
                   </div>
                 </div>
-                <div>
-                  <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                <div className="flex sm:block justify-between items-center">
+                  <div className="text-xs text-gray-500 uppercase tracking-wider mb-0 sm:mb-1">
                     Delegated To
                   </div>
-                  <div className="text-lg font-['Cinzel'] font-bold text-white">
+                  <div className="text-base sm:text-lg font-['Cinzel'] font-bold text-white">
                     {isZeroAddress(userDelegate)
                       ? "No one"
                       : userDelegate?.toLowerCase() === address?.toLowerCase()
@@ -179,7 +179,7 @@ export function Delegates() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 {!hasTokens ? (
                   <p className="text-sm text-gray-400">
                     You don't hold any tokens. Acquire tokens to participate in
@@ -210,7 +210,7 @@ export function Delegates() {
 
                 <Button
                   variant="outline"
-                  className="border-[rgb(8,62,34)] hover:bg-[rgba(255,233,127,0.1)] hover:border-[#FFE97F] hover:text-[#FFE97F] whitespace-nowrap"
+                  className="w-full sm:w-auto border-[rgb(8,62,34)] hover:bg-[rgba(255,233,127,0.1)] hover:border-[#FFE97F] hover:text-[#FFE97F] whitespace-nowrap text-xs sm:text-sm"
                   onClick={handleDelegateToSelf}
                   disabled={
                     !hasTokens ||
@@ -224,7 +224,10 @@ export function Delegates() {
                       DELEGATING
                     </>
                   ) : userDelegate?.toLowerCase() === address?.toLowerCase() ? (
-                    "ALREADY DELEGATED TO YOURSELF"
+                    <>
+                      <span className="hidden sm:inline">ALREADY DELEGATED TO YOURSELF</span>
+                      <span className="sm:hidden">SELF-DELEGATED</span>
+                    </>
                   ) : (
                     "DELEGATE TO MYSELF"
                   )}

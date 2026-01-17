@@ -152,23 +152,23 @@ export function CreateProposal() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
       {/* Header Section */}
       <div className="main-container">
-        <h1 className="text-5xl font-['Cinzel'] font-black text-[#FFE97F] mb-3 glow">
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-['Cinzel'] font-black text-[#FFE97F] mb-2 sm:mb-3 glow">
           CREATE PROPOSAL
         </h1>
-        <p className="text-gray-400 text-lg">
+        <p className="text-gray-400 text-base sm:text-lg">
           Submit a new governance proposal for community voting
         </p>
       </div>
 
       {/* Description Section */}
       <div className="main-container">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4">
           <div className="flex items-center gap-2">
-            <Scroll className="h-6 w-6 text-[#FFE97F]" />
-            <h2 className="text-2xl font-['Cinzel'] font-bold text-white">
+            <Scroll className="h-5 w-5 sm:h-6 sm:w-6 text-[#FFE97F]" />
+            <h2 className="text-xl sm:text-2xl font-['Cinzel'] font-bold text-white">
               Proposal Description
             </h2>
           </div>
@@ -176,7 +176,7 @@ export function CreateProposal() {
             variant="outline"
             size="sm"
             onClick={() => setIsPreviewMode(!isPreviewMode)}
-            className="border-[rgb(8,62,34)] hover:bg-[rgba(255,233,127,0.1)] hover:border-[#FFE97F]"
+            className="self-end sm:self-auto border-[rgb(8,62,34)] hover:bg-[rgba(255,233,127,0.1)] hover:border-[#FFE97F]"
           >
             {isPreviewMode ? (
               <>
@@ -230,22 +230,22 @@ Brief overview of what this proposal aims to achieve.`}
 
       {/* Execution Calls Section */}
       <div className="main-container">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4">
           <div className="flex items-center gap-2">
-            <Code className="h-6 w-6 text-[#FFE97F]" />
-            <h2 className="text-2xl font-['Cinzel'] font-bold text-white">
+            <Code className="h-5 w-5 sm:h-6 sm:w-6 text-[#FFE97F]" />
+            <h2 className="text-xl sm:text-2xl font-['Cinzel'] font-bold text-white">
               Execution Calls
             </h2>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 self-end sm:self-auto">
             <Button
               variant={inputMode === "manual" ? "default" : "outline"}
               size="sm"
               onClick={() => setInputMode("manual")}
               className={
                 inputMode === "manual"
-                  ? "btn-gold"
-                  : "border-[rgb(8,62,34)] hover:bg-[rgba(255,233,127,0.1)] hover:border-[#FFE97F]"
+                  ? "btn-gold text-xs sm:text-sm"
+                  : "border-[rgb(8,62,34)] hover:bg-[rgba(255,233,127,0.1)] hover:border-[#FFE97F] text-xs sm:text-sm"
               }
             >
               MANUAL
@@ -256,8 +256,8 @@ Brief overview of what this proposal aims to achieve.`}
               onClick={() => setInputMode("raw")}
               className={
                 inputMode === "raw"
-                  ? "btn-gold"
-                  : "border-[rgb(8,62,34)] hover:bg-[rgba(255,233,127,0.1)] hover:border-[#FFE97F]"
+                  ? "btn-gold text-xs sm:text-sm"
+                  : "border-[rgb(8,62,34)] hover:bg-[rgba(255,233,127,0.1)] hover:border-[#FFE97F] text-xs sm:text-sm"
               }
             >
               RAW JSON
@@ -1214,8 +1214,8 @@ Brief overview of what this proposal aims to achieve.`}
       {/* Preview & Submit Section */}
       <div className="main-container">
         <div className="flex items-center gap-2 mb-4">
-          <FileText className="h-6 w-6 text-[#FFE97F]" />
-          <h2 className="text-2xl font-['Cinzel'] font-bold text-white">
+          <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-[#FFE97F]" />
+          <h2 className="text-xl sm:text-2xl font-['Cinzel'] font-bold text-white">
             Preview & Submit
           </h2>
         </div>

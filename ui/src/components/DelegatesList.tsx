@@ -224,19 +224,19 @@ export function DelegatesList({
 
   return (
     <div className="main-container">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
         <div className="flex items-center gap-2">
-          <Shield className="h-6 w-6 text-[#FFE97F]" />
-          <h2 className="text-2xl font-['Cinzel'] font-bold text-white">
+          <Shield className="h-5 w-5 sm:h-6 sm:w-6 text-[#FFE97F]" />
+          <h2 className="text-xl sm:text-2xl font-['Cinzel'] font-bold text-white">
             All Delegates
           </h2>
         </div>
         {delegates.length > 0 && (
-          <div className="text-right">
+          <div className="text-left sm:text-right">
             <div className="text-xs text-gray-500 uppercase tracking-wider">
               Total Delegated
             </div>
-            <div className="text-2xl font-['Cinzel'] font-bold text-[#FFE97F]">
+            <div className="text-xl sm:text-2xl font-['Cinzel'] font-bold text-[#FFE97F]">
               {formatTokenAmountCompact(BigInt(totalDelegatedVotes))}
             </div>
           </div>
@@ -255,7 +255,7 @@ export function DelegatesList({
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {delegates.map((delegateData) => {
             const delegateHex =
               delegateData.delegate_hex || bigintToHex(delegateData.delegate);
@@ -278,9 +278,9 @@ export function DelegatesList({
             return (
               <div
                 key={delegateData.delegate}
-                className="border border-[rgb(8,62,34)] rounded-lg p-5 bg-[rgba(0,0,0,0.3)] hover:bg-[rgba(255,233,127,0.05)] hover:border-[#FFE97F] transition-all flex flex-col"
+                className="border border-[rgb(8,62,34)] rounded-lg p-4 sm:p-5 bg-[rgba(0,0,0,0.3)] hover:bg-[rgba(255,233,127,0.05)] hover:border-[#FFE97F] transition-all flex flex-col"
               >
-                <div className="space-y-4 flex-1">
+                <div className="space-y-3 sm:space-y-4 flex-1">
                   {/* Avatar and Name Row */}
                   <div className="flex items-center gap-3">
                     {/* Avatar */}
@@ -288,36 +288,36 @@ export function DelegatesList({
                       <img
                         src={profile?.avatar || "/avatars/adventurer.png"}
                         alt={profile?.name || "Delegate"}
-                        className="h-16 w-16 rounded-full border-2 border-[#FFE97F]/30"
+                        className="h-12 w-12 sm:h-16 sm:w-16 rounded-full border-2 border-[#FFE97F]/30"
                       />
                     </div>
 
                     {/* Name and Address */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-lg font-['Cinzel'] font-bold text-white truncate">
+                        <h3 className="text-base sm:text-lg font-['Cinzel'] font-bold text-white truncate">
                           {usernames?.get(delegateHex.toLowerCase()) ||
                             profile?.name || (
-                              <span className="font-mono">
+                              <span className="font-mono text-sm">
                                 {formatAddress(delegateHex)}
                               </span>
                             )}
                         </h3>
                         <button
                           onClick={() => handleCopyAddress(delegateHex)}
-                          className="p-1.5 hover:bg-[rgba(255,233,127,0.1)] rounded transition-colors flex-shrink-0"
+                          className="p-1 sm:p-1.5 hover:bg-[rgba(255,233,127,0.1)] rounded transition-colors flex-shrink-0"
                           title="Copy address"
                         >
                           {isCopied ? (
-                            <Check className="h-4 w-4 text-[#1aff5c]" />
+                            <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#1aff5c]" />
                           ) : (
-                            <Copy className="h-4 w-4 text-gray-400" />
+                            <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400" />
                           )}
                         </button>
                       </div>
                       {(usernames?.get(delegateHex.toLowerCase()) ||
                         profile?.name) && (
-                        <div className="text-xs font-mono text-gray-500 mt-1">
+                        <div className="text-xs font-mono text-gray-500 mt-1 hidden sm:block">
                           {formatAddress(delegateHex)}
                         </div>
                       )}
@@ -330,12 +330,12 @@ export function DelegatesList({
                       <span className="text-xs text-gray-500 uppercase tracking-wider">
                         Voting Power:
                       </span>
-                      <span className="text-lg font-['Cinzel'] font-bold text-[#1aff5c]">
+                      <span className="text-base sm:text-lg font-['Cinzel'] font-bold text-[#1aff5c]">
                         {formattedVotingPower}
                       </span>
                     </div>
                     {profile?.description && (
-                      <p className="text-sm text-gray-400 line-clamp-2">
+                      <p className="text-xs sm:text-sm text-gray-400 line-clamp-2">
                         {profile.description}
                       </p>
                     )}
@@ -343,14 +343,14 @@ export function DelegatesList({
                 </div>
 
                 {/* Voting Record and Button Row */}
-                <div className="mt-4 flex items-center justify-between gap-4">
+                <div className="mt-3 sm:mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-500 uppercase tracking-wider">
                           Votes:
                         </span>
-                        <div className="flex items-center gap-1 font-['Cinzel'] font-bold text-lg">
+                        <div className="flex items-center gap-1 font-['Cinzel'] font-bold text-base sm:text-lg">
                           <span className="text-[#1aff5c]">
                             {votingStats.forVotes}
                           </span>
@@ -387,7 +387,7 @@ export function DelegatesList({
                       isCurrent ||
                       loadingDelegateAddress !== null
                     }
-                    className="btn-gold whitespace-nowrap"
+                    className="btn-gold whitespace-nowrap w-full sm:w-auto"
                   >
                     {loadingDelegateAddress === delegateHex ? (
                       <>
@@ -407,22 +407,23 @@ export function DelegatesList({
 
       {/* Pagination Controls */}
       {!loadingDelegates && delegates.length > 0 && (
-        <div className="mt-6 flex items-center justify-between border-t border-[rgb(8,62,34)] pt-6">
+        <div className="mt-4 sm:mt-6 flex items-center justify-between border-t border-[rgb(8,62,34)] pt-4 sm:pt-6">
           <Button
             variant="outline"
             onClick={() => setCurrentPage(currentPage - 1)}
             disabled={currentPage === 1}
-            className="flex items-center gap-2 border-[rgb(8,62,34)] hover:bg-[rgba(255,233,127,0.1)] hover:border-[#FFE97F] hover:text-[#FFE97F] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 border-[rgb(8,62,34)] hover:bg-[rgba(255,233,127,0.1)] hover:border-[#FFE97F] hover:text-[#FFE97F] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ChevronLeft className="h-4 w-4" />
-            PREVIOUS
+            <span className="hidden sm:inline">PREVIOUS</span>
+            <span className="sm:hidden">PREV</span>
           </Button>
-          <div className="text-sm text-gray-400">Page {currentPage}</div>
+          <div className="text-xs sm:text-sm text-gray-400">Page {currentPage}</div>
           <Button
             variant="outline"
             onClick={() => setCurrentPage(currentPage + 1)}
             disabled={!hasMore}
-            className="flex items-center gap-2 border-[rgb(8,62,34)] hover:bg-[rgba(255,233,127,0.1)] hover:border-[#FFE97F] hover:text-[#FFE97F] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 border-[rgb(8,62,34)] hover:bg-[rgba(255,233,127,0.1)] hover:border-[#FFE97F] hover:text-[#FFE97F] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             NEXT
             <ChevronRight className="h-4 w-4" />

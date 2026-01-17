@@ -926,34 +926,34 @@ export function ProposalDetail() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
       {/* Back Button */}
       <Link
         to="/"
         className="inline-flex items-center gap-2 text-[#FFE97F] hover:text-[#FFD700] transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
-        <span className="text-sm uppercase tracking-wider font-semibold">
+        <span className="text-xs sm:text-sm uppercase tracking-wider font-semibold">
           Back to Proposals
         </span>
       </Link>
 
       {/* Header */}
       <div className="main-container">
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               {getStatusBadge(status)}
             </div>
-            <h1 className="text-4xl font-['Cinzel'] font-black text-[#FFE97F] glow">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-['Cinzel'] font-black text-[#FFE97F] glow">
               {title}
             </h1>
           </div>
-          <div className="flex flex-col items-end gap-2 min-w-[200px]">
+          <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2 sm:min-w-[200px]">
             <div className="text-gray-500 uppercase text-xs tracking-wider">
               Proposer
             </div>
-            <div className="flex items-center gap-2 whitespace-nowrap">
+            <div className="flex items-center gap-2 whitespace-nowrap ml-auto sm:ml-0">
               <img
                 src={proposerProfile?.avatar || "/avatars/adventurer.png"}
                 alt={
@@ -961,22 +961,22 @@ export function ProposalDetail() {
                   proposerProfile?.name ||
                   "Proposer"
                 }
-                className="h-10 w-10 rounded-full border border-[#FFE97F]/30"
+                className="h-8 w-8 sm:h-10 sm:w-10 rounded-full border border-[#FFE97F]/30"
               />
               <div className="text-right">
                 {usernames?.get(proposerAddress.toLowerCase()) ||
                 proposerProfile?.name ? (
                   <>
-                    <div className="text-base font-['Cinzel'] font-bold text-white">
+                    <div className="text-sm sm:text-base font-['Cinzel'] font-bold text-white">
                       {usernames?.get(proposerAddress.toLowerCase()) ||
                         proposerProfile?.name}
                     </div>
-                    <div className="text-xs font-mono text-gray-500">
+                    <div className="text-xs font-mono text-gray-500 hidden sm:block">
                       {formatAddress(proposerAddress)}
                     </div>
                   </>
                 ) : (
-                  <div className="font-mono text-[#FFE97F] text-sm">
+                  <div className="font-mono text-[#FFE97F] text-xs sm:text-sm">
                     {formatAddress(proposerAddress)}
                   </div>
                 )}
@@ -988,12 +988,12 @@ export function ProposalDetail() {
         <Separator className="my-4" />
 
         {/* Vote Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
           <div className="text-center">
             <div className="text-xs text-gray-500 uppercase tracking-wider">
               For
             </div>
-            <div className="text-2xl font-bold text-[#1aff5c] font-['Cinzel']">
+            <div className="text-lg sm:text-2xl font-bold text-[#1aff5c] font-['Cinzel']">
               {formatVotes(votesFor)}
             </div>
             <div className="text-xs text-gray-400">
@@ -1004,7 +1004,7 @@ export function ProposalDetail() {
             <div className="text-xs text-gray-500 uppercase tracking-wider">
               Against
             </div>
-            <div className="text-2xl font-bold text-red-400 font-['Cinzel']">
+            <div className="text-lg sm:text-2xl font-bold text-red-400 font-['Cinzel']">
               {formatVotes(votesAgainst)}
             </div>
             <div className="text-xs text-gray-400">
@@ -1015,7 +1015,7 @@ export function ProposalDetail() {
             <div className="text-xs text-gray-500 uppercase tracking-wider">
               Abstain
             </div>
-            <div className="text-2xl font-bold text-gray-400 font-['Cinzel']">
+            <div className="text-lg sm:text-2xl font-bold text-gray-400 font-['Cinzel']">
               {formatVotes(votesAbstain)}
             </div>
             <div className="text-xs text-gray-400">
@@ -1225,9 +1225,9 @@ export function ProposalDetail() {
                 return (
                   <div
                     key={index}
-                    className="flex items-center justify-between border border-[rgb(8,62,34)] rounded-lg p-3"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 border border-[rgb(8,62,34)] rounded-lg p-3"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3">
                       <img
                         src={voterProfile?.avatar || "/avatars/adventurer.png"}
                         alt={
@@ -1235,30 +1235,31 @@ export function ProposalDetail() {
                           voterProfile?.name ||
                           "Voter"
                         }
-                        className="h-10 w-10 rounded-full border border-[#FFE97F]/30"
+                        className="h-8 w-8 sm:h-10 sm:w-10 rounded-full border border-[#FFE97F]/30"
                       />
-                      <div className="flex flex-col">
+                      <div className="flex flex-col min-w-0">
                         {cartridgeUsername || voterProfile?.name ? (
                           <>
-                            <div className="text-base font-['Cinzel'] font-bold text-white">
+                            <div className="text-sm sm:text-base font-['Cinzel'] font-bold text-white truncate">
                               {cartridgeUsername || voterProfile?.name}
                             </div>
-                            <div className="text-xs font-mono text-gray-500">
+                            <div className="text-xs font-mono text-gray-500 hidden sm:block">
                               {formatAddress(voterAddress)}
                             </div>
                           </>
                         ) : (
-                          <div className="font-mono text-sm text-[#FFE97F]">
+                          <div className="font-mono text-xs sm:text-sm text-[#FFE97F] truncate">
                             {formatAddress(voterAddress)}
                           </div>
                         )}
                       </div>
-                      <div className="text-sm text-gray-400 ml-2">
+                      <div className="text-xs sm:text-sm text-gray-400 ml-auto sm:ml-2 whitespace-nowrap">
                         {formatVotingPower(vote.weight)} votes
                       </div>
                     </div>
                     <Badge
                       className={cn(
+                        "self-end sm:self-auto",
                         vote.support === VoteType.For &&
                           "bg-[#1aff5c]/20 text-[#1aff5c] border-[#1aff5c]",
                         vote.support === VoteType.Against &&
@@ -1338,19 +1339,19 @@ export function ProposalDetail() {
               </div>
             ) : (
               <>
-                <div className="mb-4 p-4 bg-[rgba(255,233,127,0.1)] border border-[#FFE97F]/30 rounded-lg">
-                  <p className="text-sm text-[#FFE97F] flex items-center gap-2">
-                    <XCircle className="h-4 w-4 flex-shrink-0" />
+                <div className="mb-4 p-3 sm:p-4 bg-[rgba(255,233,127,0.1)] border border-[#FFE97F]/30 rounded-lg">
+                  <p className="text-xs sm:text-sm text-[#FFE97F] flex items-start sm:items-center gap-2">
+                    <XCircle className="h-4 w-4 flex-shrink-0 mt-0.5 sm:mt-0" />
                     <span>
                       <strong>Important:</strong> You can only vote once on this
                       proposal. Your vote cannot be changed after submission.
                     </span>
                   </p>
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-2 sm:gap-4">
                   <Button
                     className={cn(
-                      "h-20 flex flex-col items-center justify-center gap-2",
+                      "h-16 sm:h-20 flex flex-col items-center justify-center gap-1 sm:gap-2",
                       selectedVote === VoteType.For
                         ? "bg-[#1aff5c]/20 text-[#1aff5c] border-2 border-[#1aff5c]"
                         : "btn-gold-outline"
@@ -1358,14 +1359,14 @@ export function ProposalDetail() {
                     onClick={() => handleVote(VoteType.For)}
                     disabled={isVoting || selectedVote !== null}
                   >
-                    <CheckCircle2 className="h-6 w-6" />
-                    <span className="font-bold uppercase tracking-wider">
+                    <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6" />
+                    <span className="text-xs sm:text-sm font-bold uppercase tracking-wider">
                       For
                     </span>
                   </Button>
                   <Button
                     className={cn(
-                      "h-20 flex flex-col items-center justify-center gap-2",
+                      "h-16 sm:h-20 flex flex-col items-center justify-center gap-1 sm:gap-2",
                       selectedVote === VoteType.Against
                         ? "bg-red-900/50 text-red-400 border-2 border-red-600"
                         : "btn-gold-outline"
@@ -1373,14 +1374,14 @@ export function ProposalDetail() {
                     onClick={() => handleVote(VoteType.Against)}
                     disabled={isVoting || selectedVote !== null}
                   >
-                    <XCircle className="h-6 w-6" />
-                    <span className="font-bold uppercase tracking-wider">
+                    <XCircle className="h-5 w-5 sm:h-6 sm:w-6" />
+                    <span className="text-xs sm:text-sm font-bold uppercase tracking-wider">
                       Against
                     </span>
                   </Button>
                   <Button
                     className={cn(
-                      "h-20 flex flex-col items-center justify-center gap-2",
+                      "h-16 sm:h-20 flex flex-col items-center justify-center gap-1 sm:gap-2",
                       selectedVote === VoteType.Abstain
                         ? "bg-gray-800/50 text-gray-400 border-2 border-gray-600"
                         : "btn-gold-outline"
@@ -1388,8 +1389,8 @@ export function ProposalDetail() {
                     onClick={() => handleVote(VoteType.Abstain)}
                     disabled={isVoting || selectedVote !== null}
                   >
-                    <Clock className="h-6 w-6" />
-                    <span className="font-bold uppercase tracking-wider">
+                    <Clock className="h-5 w-5 sm:h-6 sm:w-6" />
+                    <span className="text-xs sm:text-sm font-bold uppercase tracking-wider">
                       Abstain
                     </span>
                   </Button>
