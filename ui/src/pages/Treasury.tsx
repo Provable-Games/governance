@@ -166,6 +166,12 @@ export function Treasury() {
     }).format(value);
   };
 
+  // Format address for display (truncate on mobile)
+  const formatAddress = (address: string): string => {
+    if (address.length <= 12) return address;
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
   // Smart token balance formatter
   const formatTokenBalance = (balance: string, decimals: number): string => {
     try {
@@ -388,7 +394,7 @@ export function Treasury() {
                           {balance.symbol || "Unknown"}
                         </span>
                         {balance.name && balance.name !== balance.symbol && (
-                          <span className="text-sm text-gray-400">
+                          <span className="hidden sm:inline text-sm text-gray-400">
                             {balance.name}
                           </span>
                         )}
@@ -397,10 +403,12 @@ export function Treasury() {
                         href={`https://voyager.online/contract/${bigintToHex(balance.tokenAddress)}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs text-gray-500 hover:text-[#FFE97F] transition-colors font-mono flex items-center gap-1 mt-1"
+                        className="text-xs text-gray-500 hover:text-[#FFE97F] transition-colors font-mono flex items-center gap-1 mt-1 max-w-full"
+                        title={bigintToHex(balance.tokenAddress)}
                       >
-                        {bigintToHex(balance.tokenAddress)}
-                        <ExternalLink className="h-3 w-3" />
+                        <span className="hidden sm:inline">{bigintToHex(balance.tokenAddress)}</span>
+                        <span className="inline sm:hidden truncate">{formatAddress(bigintToHex(balance.tokenAddress))}</span>
+                        <ExternalLink className="h-3 w-3 flex-shrink-0" />
                       </a>
                     </div>
                   </div>
