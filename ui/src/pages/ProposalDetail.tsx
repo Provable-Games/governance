@@ -36,6 +36,7 @@ import {
   Code,
   ChevronDown,
   ChevronUp,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAccount, useProvider } from "@starknet-react/core";
@@ -73,8 +74,6 @@ export function ProposalDetail() {
   const [executedData, setExecutedData] = useState<any>(null);
   const [showAllVoters, setShowAllVoters] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-
-  console.log(executedData);
 
   // Get addresses of voters and proposer for username lookup
   const allAddresses = useMemo(() => {
@@ -131,8 +130,7 @@ export function ProposalDetail() {
         // Check if user has already voted
         if (address && votesData) {
           const userVoteData = votesData.find(
-            (v: any) =>
-              bigintToHex(v.voter).toLowerCase() === address.toLowerCase(),
+            (v: any) => v.voter_hex.toLowerCase() === address.toLowerCase(),
           );
           if (userVoteData) {
             setHasVoted(true);
@@ -721,16 +719,45 @@ export function ProposalDetail() {
               <span className="text-gray-500 uppercase tracking-wider">
                 Token Contract:
               </span>
-              <div className="font-mono text-gray-300 break-all mt-1">
-                {bigintToHex(call.to_address)}
+              <div className="flex items-center gap-2 mt-1">
+                <a
+                  href={`https://voyager.online/contract/${bigintToHex(call.to_address)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-[#FFE97F] hover:text-[#FFD700] transition-colors break-all"
+                >
+                  {bigintToHex(call.to_address)}
+                </a>
+                <ExternalLink className="h-3 w-3 text-[#FFE97F] flex-shrink-0" />
               </div>
             </div>
             <div>
               <span className="text-gray-500 uppercase tracking-wider">
                 Selector:
               </span>
-              <div className="font-mono text-gray-300 break-all mt-1">
-                {bigintToHex(call.selector)}
+              <div className="flex items-center gap-2 mt-1">
+                <span className="font-mono text-gray-300">
+                  {formatAddress(bigintToHex(call.selector))}
+                </span>
+                <button
+                  onClick={() => navigator.clipboard.writeText(bigintToHex(call.selector))}
+                  className="flex-shrink-0 p-1 hover:bg-[rgba(255,233,127,0.1)] rounded transition-colors"
+                  title="Copy full selector"
+                >
+                  <svg
+                    className="h-3 w-3 text-gray-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    />
+                  </svg>
+                </button>
               </div>
             </div>
             <div>
@@ -888,16 +915,45 @@ export function ProposalDetail() {
               <span className="text-gray-500 uppercase tracking-wider">
                 Token Contract:
               </span>
-              <div className="font-mono text-gray-300 break-all mt-1">
-                {bigintToHex(call.to_address)}
+              <div className="flex items-center gap-2 mt-1">
+                <a
+                  href={`https://voyager.online/contract/${bigintToHex(call.to_address)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-[#FFE97F] hover:text-[#FFD700] transition-colors break-all"
+                >
+                  {bigintToHex(call.to_address)}
+                </a>
+                <ExternalLink className="h-3 w-3 text-[#FFE97F] flex-shrink-0" />
               </div>
             </div>
             <div>
               <span className="text-gray-500 uppercase tracking-wider">
                 Selector:
               </span>
-              <div className="font-mono text-gray-300 break-all mt-1">
-                {bigintToHex(call.selector)}
+              <div className="flex items-center gap-2 mt-1">
+                <span className="font-mono text-gray-300">
+                  {formatAddress(bigintToHex(call.selector))}
+                </span>
+                <button
+                  onClick={() => navigator.clipboard.writeText(bigintToHex(call.selector))}
+                  className="flex-shrink-0 p-1 hover:bg-[rgba(255,233,127,0.1)] rounded transition-colors"
+                  title="Copy full selector"
+                >
+                  <svg
+                    className="h-3 w-3 text-gray-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    />
+                  </svg>
+                </button>
               </div>
             </div>
             <div>
@@ -925,16 +981,47 @@ export function ProposalDetail() {
           <Badge variant="outline">Call #{index + 1}</Badge>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>
             <span className="text-muted-foreground">Contract:</span>
-            <div className="font-mono mt-1">
-              {formatAddress(bigintToHex(call.to_address))}
+            <div className="flex items-center gap-2 mt-1">
+              <a
+                href={`https://voyager.online/contract/${bigintToHex(call.to_address)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-[#FFE97F] hover:text-[#FFD700] transition-colors text-xs sm:text-sm"
+              >
+                {formatAddress(bigintToHex(call.to_address))}
+              </a>
+              <ExternalLink className="h-3 w-3 text-[#FFE97F] flex-shrink-0" />
             </div>
           </div>
           <div>
             <span className="text-muted-foreground">Selector:</span>
-            <div className="font-mono mt-1">{bigintToHex(call.selector)}</div>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="font-mono text-xs sm:text-sm">
+                {formatAddress(bigintToHex(call.selector))}
+              </span>
+              <button
+                onClick={() => navigator.clipboard.writeText(bigintToHex(call.selector))}
+                className="flex-shrink-0 p-1 hover:bg-[rgba(255,233,127,0.1)] rounded transition-colors"
+                title="Copy full selector"
+              >
+                <svg
+                  className="h-3 w-3 text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1390,10 +1477,10 @@ export function ProposalDetail() {
                 <div className="grid grid-cols-3 gap-2 sm:gap-4">
                   <Button
                     className={cn(
-                      "h-16 sm:h-20 flex flex-col items-center justify-center gap-1 sm:gap-2",
+                      "h-16 sm:h-20 flex flex-col items-center justify-center gap-1 sm:gap-2 transition-all",
                       selectedVote === VoteType.For
-                        ? "bg-[#1aff5c]/20 text-[#1aff5c] border-2 border-[#1aff5c]"
-                        : "btn-gold-outline",
+                        ? "bg-[#1aff5c] text-black border-2 border-[#1aff5c] hover:bg-[#0dd149]"
+                        : "bg-[#1aff5c]/10 text-[#1aff5c] border border-[#1aff5c]/30 hover:bg-[#1aff5c]/20 hover:border-[#1aff5c]",
                     )}
                     onClick={() => handleVote(VoteType.For)}
                     disabled={isVoting || selectedVote !== null}
@@ -1405,10 +1492,10 @@ export function ProposalDetail() {
                   </Button>
                   <Button
                     className={cn(
-                      "h-16 sm:h-20 flex flex-col items-center justify-center gap-1 sm:gap-2",
+                      "h-16 sm:h-20 flex flex-col items-center justify-center gap-1 sm:gap-2 transition-all",
                       selectedVote === VoteType.Against
-                        ? "bg-red-900/50 text-red-400 border-2 border-red-600"
-                        : "btn-gold-outline",
+                        ? "bg-red-500 text-white border-2 border-red-500 hover:bg-red-600"
+                        : "bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 hover:border-red-500",
                     )}
                     onClick={() => handleVote(VoteType.Against)}
                     disabled={isVoting || selectedVote !== null}
@@ -1420,10 +1507,10 @@ export function ProposalDetail() {
                   </Button>
                   <Button
                     className={cn(
-                      "h-16 sm:h-20 flex flex-col items-center justify-center gap-1 sm:gap-2",
+                      "h-16 sm:h-20 flex flex-col items-center justify-center gap-1 sm:gap-2 transition-all",
                       selectedVote === VoteType.Abstain
-                        ? "bg-gray-800/50 text-gray-400 border-2 border-gray-600"
-                        : "btn-gold-outline",
+                        ? "bg-gray-400 text-black border-2 border-gray-400 hover:bg-gray-500"
+                        : "bg-gray-400/10 text-gray-400 border border-gray-400/30 hover:bg-gray-400/20 hover:border-gray-400",
                     )}
                     onClick={() => handleVote(VoteType.Abstain)}
                     disabled={isVoting || selectedVote !== null}
