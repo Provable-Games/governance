@@ -16,9 +16,10 @@ interface ProposalCardProps {
     proposer: string;
     executedTime?: Date;
   };
+  usernames?: Map<string, string>;
 }
 
-export function ProposalCard({ proposal }: ProposalCardProps) {
+export function ProposalCard({ proposal, usernames }: ProposalCardProps) {
   const formatAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
@@ -101,14 +102,20 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
               <div className="flex items-center gap-2 ml-auto sm:ml-0">
                 <img
                   src={profile?.avatar || "/avatars/adventurer.png"}
-                  alt={profile?.name || "Proposer"}
+                  alt={
+                    usernames?.get(proposal.proposer.toLowerCase()) ||
+                    profile?.name ||
+                    "Proposer"
+                  }
                   className="h-6 w-6 sm:h-8 sm:w-8 rounded-full border border-[#FFE97F]/30"
                 />
                 <div className="text-right">
-                  {profile?.name ? (
+                  {usernames?.get(proposal.proposer.toLowerCase()) ||
+                  profile?.name ? (
                     <>
                       <div className="text-xs sm:text-sm font-['Cinzel'] font-bold text-white">
-                        {profile.name}
+                        {usernames?.get(proposal.proposer.toLowerCase()) ||
+                          profile?.name}
                       </div>
                       <div className="text-xs font-mono text-gray-500 hidden sm:block">
                         {formatAddress(proposal.proposer)}

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import * as db from "@/lib/db";
 import { bigintToHex } from "@/lib/utils";
-import { formatTokenAmount, formatVotingPower } from "@/lib/utils/tokenUtils";
+import { formatVotingPower } from "@/lib/utils/tokenUtils";
 import {
   calculateVoteTotals,
   determineProposalStatus,
@@ -31,21 +31,28 @@ import {
   Trophy,
   ArrowLeft,
   Wallet,
-  Coins,
-  ArrowRight,
-  Code,
   ChevronDown,
   ChevronUp,
-  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAccount, useProvider } from "@starknet-react/core";
 import { useGovernor, VoteType } from "@/hooks/useGovernor";
-import { mainnetTokens } from "@/lib/utils/mainnetTokens";
 import { getDelegateProfile } from "@/lib/delegateProfiles";
 import GOVERNOR_ABI from "@/lib/abis/governor";
-import { GOVERNOR_ADDRESS } from "@/lib/constants";
+import { GOVERNOR_ADDRESS, CUSTOM_PROPOSAL_TITLES } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
+import {
+  isTransferCall,
+  isApprovalCall,
+  isEkuboMintCall,
+  isEkuboClearCall,
+  renderTransferCall,
+  renderApprovalCall,
+  renderEkuboMintCall,
+  renderEkuboClearCall,
+  renderGenericCall,
+  formatAddress,
+} from "@/components/CallDisplays";
 
 export function ProposalDetail() {
   const { id } = useParams();
@@ -192,10 +199,13 @@ export function ProposalDetail() {
     );
   }
 
-  // Extract title from description (first line starting with #)
+  // Check for custom title first, otherwise extract from description
+  const customTitle = id ? CUSTOM_PROPOSAL_TITLES[id] : undefined;
   const lines = proposal.description.split("\n");
   const titleLine = lines.find((line: string) => line.startsWith("#"));
-  const title = titleLine ? titleLine.replace(/^#+\s*/, "") : `Proposal ${id}`;
+  const title =
+    customTitle ||
+    (titleLine ? titleLine.replace(/^#+\s*/, "") : `Proposal ${id}`);
   const descriptionWithoutTitle = lines
     .filter((line: string) => line !== titleLine)
     .join("\n")
@@ -478,564 +488,7 @@ export function ProposalDetail() {
     }
   };
 
-  const formatAddress = (addr: string) => {
-    if (addr.length <= 10) return addr;
-    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-  };
-
-  // Transfer selector hash for Starknet
-  const TRANSFER_SELECTOR =
-    "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e";
-
-  // Approve selector hash for Starknet
-  const APPROVE_SELECTOR =
-    "0x219209e083275171774dab1df80982e9df2096516f06319c5c6d71ae0a8480c";
-
-  // Check if a call is a transfer by checking the selector hash
-  const isTransferCall = (call: any) => {
-    const selector = bigintToHex(call.selector)
-      .toLowerCase()
-      .replace(/^0x0+/, "0x");
-    const targetSelector = TRANSFER_SELECTOR.toLowerCase().replace(
-      /^0x0+/,
-      "0x",
-    );
-    return selector === targetSelector;
-  };
-
-  // Check if a call is an approval by checking the selector hash
-  const isApprovalCall = (call: any) => {
-    const selector = bigintToHex(call.selector)
-      .toLowerCase()
-      .replace(/^0x0+/, "0x");
-    const targetSelector = APPROVE_SELECTOR.toLowerCase().replace(
-      /^0x0+/,
-      "0x",
-    );
-    return selector === targetSelector;
-  };
-
-  // Get token info from mainnetTokens
-  const getTokenInfo = (address: string) => {
-    const normalizeAddress = (addr: string) => {
-      return addr.toLowerCase().replace(/^0x0+/, "0x");
-    };
-
-    const normalizedAddress = normalizeAddress(address);
-    const token = mainnetTokens.find(
-      (t) => normalizeAddress(t.l2_token_address) === normalizedAddress,
-    );
-
-    if (token) {
-      return {
-        name: token.name,
-        symbol: token.symbol,
-        decimals: token.decimals,
-        logo: token.logo_url,
-      };
-    }
-
-    return {
-      name: "Unknown Token",
-      symbol: "???",
-      decimals: 18,
-      logo: undefined,
-    };
-  };
-
-  // Parse transfer calldata (recipient, amount_low, amount_high)
-  const parseTransferCall = (call: any) => {
-    try {
-      if (!call.calldata || call.calldata.length < 3) return null;
-
-      const recipient = bigintToHex(call.calldata[0]);
-      const amountLow = BigInt(call.calldata[1]);
-      const amountHigh = BigInt(call.calldata[2]);
-      const amount = amountLow + (amountHigh << 128n);
-
-      const tokenAddress = bigintToHex(call.to_address);
-      const tokenInfo = getTokenInfo(tokenAddress);
-
-      return { recipient, amount, tokenInfo };
-    } catch (error) {
-      console.error("Error parsing transfer call:", error);
-      return null;
-    }
-  };
-
-  // Parse approval calldata (spender, amount_low, amount_high)
-  const parseApprovalCall = (call: any) => {
-    try {
-      if (!call.calldata || call.calldata.length < 3) return null;
-
-      const spender = bigintToHex(call.calldata[0]);
-      const amountLow = BigInt(call.calldata[1]);
-      const amountHigh = BigInt(call.calldata[2]);
-      const amount = amountLow + (amountHigh << 128n);
-
-      const tokenAddress = bigintToHex(call.to_address);
-      const tokenInfo = getTokenInfo(tokenAddress);
-
-      // Check if it's unlimited approval (max u256)
-      const maxU256 = BigInt("0xffffffffffffffffffffffffffffffff");
-      const isUnlimited = amountLow === maxU256 && amountHigh === maxU256;
-
-      return { spender, amount, tokenInfo, isUnlimited };
-    } catch (error) {
-      console.error("Error parsing approval call:", error);
-      return null;
-    }
-  };
-
-  // Render transfer call with enhanced design
-  const renderTransferCall = (call: any, index: number) => {
-    const transferData = parseTransferCall(call);
-    if (!transferData) return null;
-
-    const { recipient, amount, tokenInfo } = transferData;
-    const formattedAmount = formatTokenAmount(
-      amount,
-      tokenInfo.decimals,
-      tokenInfo.decimals === 6 ? 6 : 2,
-    );
-
-    return (
-      <div key={index} className="space-y-3">
-        {/* Main transfer card */}
-        <div className="relative overflow-hidden rounded-lg border border-[#FFE97F]/40 bg-gradient-to-br from-[rgba(255,233,127,0.15)] to-[rgba(255,233,127,0.05)]">
-          <div className="p-5">
-            <div className="flex items-start gap-4">
-              {/* Token logo with glow effect */}
-              <div className="relative flex-shrink-0">
-                {tokenInfo.logo ? (
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-[#FFE97F]/20 blur-xl rounded-full"></div>
-                    <img
-                      src={tokenInfo.logo}
-                      alt={tokenInfo.symbol}
-                      className="relative h-14 w-14 rounded-full border-2 border-[#FFE97F]/30"
-                    />
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-[#FFE97F]/20 blur-xl rounded-full"></div>
-                    <div className="relative h-14 w-14 rounded-full border-2 border-[#FFE97F]/30 bg-[rgba(0,0,0,0.5)] flex items-center justify-center">
-                      <Coins className="h-7 w-7 text-[#FFE97F]" />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Transfer details */}
-              <div className="flex-1 min-w-0">
-                {/* Token header */}
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-xs text-gray-400 uppercase tracking-widest font-semibold">
-                    Transfer
-                  </span>
-                  <ArrowRight className="h-3.5 w-3.5 text-[#FFE97F]" />
-                  <span className="text-sm text-white font-semibold">
-                    {tokenInfo.name}
-                  </span>
-                  <Badge
-                    variant="outline"
-                    className="border-[#FFE97F] text-[#FFE97F] text-xs px-2 py-0.5 font-mono"
-                  >
-                    {tokenInfo.symbol}
-                  </Badge>
-                </div>
-
-                {/* Amount display */}
-                <div className="mb-4">
-                  <div className="flex items-baseline gap-2">
-                    <span className="font-['Cinzel'] text-3xl font-black text-white tracking-tight">
-                      {formattedAmount}
-                    </span>
-                    <span className="font-['Cinzel'] text-lg font-bold text-[#FFE97F]">
-                      {tokenInfo.symbol}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Recipient */}
-                <div className="flex items-center gap-2 p-3 bg-[rgba(0,0,0,0.3)] border border-[rgb(8,62,34)] rounded">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                      Recipient
-                    </div>
-                    <div className="font-mono text-sm text-[#FFE97F] truncate">
-                      {recipient}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => navigator.clipboard.writeText(recipient)}
-                    className="flex-shrink-0 p-1.5 hover:bg-[rgba(255,233,127,0.1)] rounded transition-colors"
-                    title="Copy address"
-                  >
-                    <svg
-                      className="h-4 w-4 text-gray-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Decorative gradient overlay */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-[#FFE97F]/5 rounded-full blur-3xl -z-10"></div>
-        </div>
-
-        {/* Technical details (collapsible) */}
-        <details className="group">
-          <summary className="cursor-pointer text-xs text-gray-500 hover:text-[#FFE97F] uppercase tracking-wider flex items-center gap-2 transition-colors">
-            <Code className="h-3.5 w-3.5" />
-            Technical Details
-            <svg
-              className="h-3 w-3 transition-transform group-open:rotate-180"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </summary>
-          <div className="mt-3 p-4 bg-[rgba(0,0,0,0.3)] border border-[rgb(8,62,34)] rounded space-y-3 text-xs">
-            <div>
-              <span className="text-gray-500 uppercase tracking-wider">
-                Token Contract:
-              </span>
-              <div className="flex items-center gap-2 mt-1">
-                <a
-                  href={`https://voyager.online/contract/${bigintToHex(call.to_address)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-mono text-[#FFE97F] hover:text-[#FFD700] transition-colors break-all"
-                >
-                  {bigintToHex(call.to_address)}
-                </a>
-                <ExternalLink className="h-3 w-3 text-[#FFE97F] flex-shrink-0" />
-              </div>
-            </div>
-            <div>
-              <span className="text-gray-500 uppercase tracking-wider">
-                Selector:
-              </span>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="font-mono text-gray-300">
-                  {formatAddress(bigintToHex(call.selector))}
-                </span>
-                <button
-                  onClick={() => navigator.clipboard.writeText(bigintToHex(call.selector))}
-                  className="flex-shrink-0 p-1 hover:bg-[rgba(255,233,127,0.1)] rounded transition-colors"
-                  title="Copy full selector"
-                >
-                  <svg
-                    className="h-3 w-3 text-gray-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <div>
-              <span className="text-gray-500 uppercase tracking-wider">
-                Raw Calldata:
-              </span>
-              <div className="font-mono p-2 bg-[rgba(0,0,0,0.5)] border border-[rgb(8,62,34)] rounded text-gray-400 break-all mt-1">
-                {call.calldata.map((data: any) => bigintToHex(data)).join(", ")}
-              </div>
-            </div>
-          </div>
-        </details>
-      </div>
-    );
-  };
-
-  // Render approval call with enhanced design
-  const renderApprovalCall = (call: any, index: number) => {
-    const approvalData = parseApprovalCall(call);
-    if (!approvalData) return null;
-
-    const { spender, amount, tokenInfo, isUnlimited } = approvalData;
-    const formattedAmount = isUnlimited
-      ? "Unlimited"
-      : formatTokenAmount(
-          amount,
-          tokenInfo.decimals,
-          tokenInfo.decimals === 6 ? 6 : 2,
-        );
-
-    return (
-      <div key={index} className="space-y-3">
-        {/* Main approval card */}
-        <div className="relative overflow-hidden rounded-lg border border-blue-400/40 bg-gradient-to-br from-[rgba(59,130,246,0.15)] to-[rgba(59,130,246,0.05)]">
-          <div className="p-5">
-            <div className="flex items-start gap-4">
-              {/* Token logo with glow effect */}
-              <div className="relative flex-shrink-0">
-                {tokenInfo.logo ? (
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-blue-400/20 blur-xl rounded-full"></div>
-                    <img
-                      src={tokenInfo.logo}
-                      alt={tokenInfo.symbol}
-                      className="relative h-14 w-14 rounded-full border-2 border-blue-400/30"
-                    />
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-blue-400/20 blur-xl rounded-full"></div>
-                    <div className="relative h-14 w-14 rounded-full border-2 border-blue-400/30 bg-[rgba(0,0,0,0.5)] flex items-center justify-center">
-                      <Coins className="h-7 w-7 text-blue-400" />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Approval details */}
-              <div className="flex-1 min-w-0">
-                {/* Token header */}
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-xs text-gray-400 uppercase tracking-widest font-semibold">
-                    Approval
-                  </span>
-                  <ArrowRight className="h-3.5 w-3.5 text-blue-400" />
-                  <span className="text-sm text-white font-semibold">
-                    {tokenInfo.name}
-                  </span>
-                  <Badge
-                    variant="outline"
-                    className="border-blue-400 text-blue-400 text-xs px-2 py-0.5 font-mono"
-                  >
-                    {tokenInfo.symbol}
-                  </Badge>
-                </div>
-
-                {/* Amount display */}
-                <div className="mb-4">
-                  <div className="flex items-baseline gap-2">
-                    <span className="font-['Cinzel'] text-3xl font-black text-white tracking-tight">
-                      {formattedAmount}
-                    </span>
-                    {!isUnlimited && (
-                      <span className="font-['Cinzel'] text-lg font-bold text-blue-400">
-                        {tokenInfo.symbol}
-                      </span>
-                    )}
-                  </div>
-                  {isUnlimited && (
-                    <p className="text-xs text-blue-400 mt-1">
-                      This grants unlimited spending permission
-                    </p>
-                  )}
-                </div>
-
-                {/* Spender */}
-                <div className="flex items-center gap-2 p-3 bg-[rgba(0,0,0,0.3)] border border-[rgb(8,62,34)] rounded">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                      Spender
-                    </div>
-                    <div className="font-mono text-sm text-blue-400 truncate">
-                      {spender}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => navigator.clipboard.writeText(spender)}
-                    className="flex-shrink-0 p-1.5 hover:bg-[rgba(59,130,246,0.1)] rounded transition-colors"
-                    title="Copy address"
-                  >
-                    <svg
-                      className="h-4 w-4 text-gray-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Decorative gradient overlay */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-400/5 rounded-full blur-3xl -z-10"></div>
-        </div>
-
-        {/* Technical details (collapsible) */}
-        <details className="group">
-          <summary className="cursor-pointer text-xs text-gray-500 hover:text-blue-400 uppercase tracking-wider flex items-center gap-2 transition-colors">
-            <Code className="h-3.5 w-3.5" />
-            Technical Details
-            <svg
-              className="h-3 w-3 transition-transform group-open:rotate-180"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </summary>
-          <div className="mt-3 p-4 bg-[rgba(0,0,0,0.3)] border border-[rgb(8,62,34)] rounded space-y-3 text-xs">
-            <div>
-              <span className="text-gray-500 uppercase tracking-wider">
-                Token Contract:
-              </span>
-              <div className="flex items-center gap-2 mt-1">
-                <a
-                  href={`https://voyager.online/contract/${bigintToHex(call.to_address)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-mono text-[#FFE97F] hover:text-[#FFD700] transition-colors break-all"
-                >
-                  {bigintToHex(call.to_address)}
-                </a>
-                <ExternalLink className="h-3 w-3 text-[#FFE97F] flex-shrink-0" />
-              </div>
-            </div>
-            <div>
-              <span className="text-gray-500 uppercase tracking-wider">
-                Selector:
-              </span>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="font-mono text-gray-300">
-                  {formatAddress(bigintToHex(call.selector))}
-                </span>
-                <button
-                  onClick={() => navigator.clipboard.writeText(bigintToHex(call.selector))}
-                  className="flex-shrink-0 p-1 hover:bg-[rgba(255,233,127,0.1)] rounded transition-colors"
-                  title="Copy full selector"
-                >
-                  <svg
-                    className="h-3 w-3 text-gray-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <div>
-              <span className="text-gray-500 uppercase tracking-wider">
-                Raw Calldata:
-              </span>
-              <div className="font-mono p-2 bg-[rgba(0,0,0,0.5)] border border-[rgb(8,62,34)] rounded text-gray-400 break-all mt-1">
-                {call.calldata.map((data: any) => bigintToHex(data)).join(", ")}
-              </div>
-            </div>
-          </div>
-        </details>
-      </div>
-    );
-  };
-
-  // Render generic call
-  const renderGenericCall = (call: any, index: number) => {
-    return (
-      <div
-        key={index}
-        className="border border-[rgb(8,62,34)] rounded-lg p-4 space-y-3"
-      >
-        <div className="flex items-center gap-2">
-          <Badge variant="outline">Call #{index + 1}</Badge>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-          <div>
-            <span className="text-muted-foreground">Contract:</span>
-            <div className="flex items-center gap-2 mt-1">
-              <a
-                href={`https://voyager.online/contract/${bigintToHex(call.to_address)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-mono text-[#FFE97F] hover:text-[#FFD700] transition-colors text-xs sm:text-sm"
-              >
-                {formatAddress(bigintToHex(call.to_address))}
-              </a>
-              <ExternalLink className="h-3 w-3 text-[#FFE97F] flex-shrink-0" />
-            </div>
-          </div>
-          <div>
-            <span className="text-muted-foreground">Selector:</span>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="font-mono text-xs sm:text-sm">
-                {formatAddress(bigintToHex(call.selector))}
-              </span>
-              <button
-                onClick={() => navigator.clipboard.writeText(bigintToHex(call.selector))}
-                className="flex-shrink-0 p-1 hover:bg-[rgba(255,233,127,0.1)] rounded transition-colors"
-                title="Copy full selector"
-              >
-                <svg
-                  className="h-3 w-3 text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {call.calldata && call.calldata.length > 0 && (
-          <div className="text-sm">
-            <span className="text-muted-foreground">Calldata:</span>
-            <div className="font-mono mt-1 p-2 bg-muted rounded text-xs break-all">
-              {call.calldata.join(", ")}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
+  console.log(calls);
 
   return (
     <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
@@ -1317,7 +770,11 @@ export function ProposalDetail() {
               ? renderTransferCall(call, index)
               : isApprovalCall(call)
                 ? renderApprovalCall(call, index)
-                : renderGenericCall(call, index),
+                : isEkuboMintCall(call)
+                  ? renderEkuboMintCall(call, index)
+                  : isEkuboClearCall(call)
+                    ? renderEkuboClearCall(call, index)
+                    : renderGenericCall(call, index),
           )}
         </CardContent>
       </Card>

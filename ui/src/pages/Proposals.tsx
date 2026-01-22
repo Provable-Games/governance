@@ -5,11 +5,12 @@ import { Link } from "react-router-dom";
 import { bigintToHex } from "@/lib/utils";
 import { formatVotingPower } from "@/lib/utils/tokenUtils";
 import { determineProposalStatus } from "@/lib/utils/proposalUtils";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import * as db from "@/lib/db";
 import { useToken } from "@/hooks/useToken";
 import { ProposalCard } from "@/components/ProposalCard";
-import { HIDDEN_PROPOSAL_IDS } from "@/lib/constants";
+import { HIDDEN_PROPOSAL_IDS, CUSTOM_PROPOSAL_TITLES } from "@/lib/constants";
+import { useGetUsernames } from "@/hooks/useGetUsernames";
 
 interface Proposal {
   id: string;
@@ -37,6 +38,14 @@ export function Proposals() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
+  // Get all proposer addresses for username lookup
+  const proposerAddresses = useMemo(() => {
+    return proposals.map((p) => p.proposer);
+  }, [proposals]);
+
+  // Fetch Cartridge usernames for all proposers
+  const { usernames } = useGetUsernames(proposerAddresses);
+
   useEffect(() => {
     async function fetchProposals() {
       try {
@@ -46,12 +55,13 @@ export function Proposals() {
         // Transform proposals - vote totals are now included in the API response
         const transformed = await Promise.all(
           data.map(async (p) => {
-            // Extract title from description (first line starting with #)
+            // Check for custom title first, otherwise extract from description
+            const customTitle = CUSTOM_PROPOSAL_TITLES[p.proposal_id];
             const lines = p.description.split("\n");
             const titleLine = lines.find((line) => line.startsWith("#"));
-            const title = titleLine
+            const title = customTitle || (titleLine
               ? titleLine.replace(/^#+\s*/, "")
-              : `Proposal ${p.proposal_id}`;
+              : `Proposal ${p.proposal_id}`);
 
             // Get description without the title line
             const descriptionWithoutTitle = lines
@@ -283,7 +293,11 @@ export function Proposals() {
               ) : (
                 <div className="space-y-4">
                   {filteredProposals.map((proposal) => (
-                    <ProposalCard key={proposal.id} proposal={proposal} />
+                    <ProposalCard
+                      key={proposal.id}
+                      proposal={proposal}
+                      usernames={usernames}
+                    />
                   ))}
                 </div>
               )}
@@ -304,7 +318,11 @@ export function Proposals() {
                   {filteredProposals
                     .filter((p) => p.status === "active")
                     .map((proposal) => (
-                      <ProposalCard key={proposal.id} proposal={proposal} />
+                      <ProposalCard
+                        key={proposal.id}
+                        proposal={proposal}
+                        usernames={usernames}
+                      />
                     ))}
                 </div>
               )}
@@ -329,7 +347,11 @@ export function Proposals() {
                         p.status === "succeeded" || p.status === "executed",
                     )
                     .map((proposal) => (
-                      <ProposalCard key={proposal.id} proposal={proposal} />
+                      <ProposalCard
+                        key={proposal.id}
+                        proposal={proposal}
+                        usernames={usernames}
+                      />
                     ))}
                 </div>
               )}
@@ -354,7 +376,11 @@ export function Proposals() {
                         p.status === "failed" || p.status === "quorum_not_met",
                     )
                     .map((proposal) => (
-                      <ProposalCard key={proposal.id} proposal={proposal} />
+                      <ProposalCard
+                        key={proposal.id}
+                        proposal={proposal}
+                        usernames={usernames}
+                      />
                     ))}
                 </div>
               )}

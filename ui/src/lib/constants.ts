@@ -34,3 +34,10 @@ export const HIDDEN_PROPOSAL_IDS: string[] = [
 // Treasury governance token breakdown
 // Initial allocation to DAO treasury
 export const GOVERNANCE_TOKEN_INITIAL_ALLOCATION = 1_000_000;
+
+// Custom titles for specific proposal IDs
+// Maps proposal ID to a custom display title
+export const CUSTOM_PROPOSAL_TITLES: Record<string, string> = {
+  "1433524114456312042611743953357569740895908601465234800270746577866087880958":
+    "SURVIVOR Liquidity Proposal",
+};
