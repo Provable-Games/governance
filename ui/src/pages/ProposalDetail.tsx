@@ -39,7 +39,11 @@ import { useAccount, useProvider } from "@starknet-react/core";
 import { useGovernor, VoteType } from "@/hooks/useGovernor";
 import { getDelegateProfile } from "@/lib/delegateProfiles";
 import GOVERNOR_ABI from "@/lib/abis/governor";
-import { GOVERNOR_ADDRESS, CUSTOM_PROPOSAL_TITLES } from "@/lib/constants";
+import {
+  GOVERNOR_ADDRESS,
+  CUSTOM_PROPOSAL_TITLES,
+  INVALID_CALLDATA_PROPOSAL_IDS,
+} from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
 import {
   isTransferCall,
@@ -198,6 +202,11 @@ export function ProposalDetail() {
       </div>
     );
   }
+
+  // Check if this proposal has invalid calldata
+  const hasInvalidCalldata = id
+    ? INVALID_CALLDATA_PROPOSAL_IDS.includes(id)
+    : false;
 
   // Check for custom title first, otherwise extract from description
   const customTitle = id ? CUSTOM_PROPOSAL_TITLES[id] : undefined;
@@ -691,6 +700,22 @@ export function ProposalDetail() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {hasInvalidCalldata && (
+            <div className="mb-4 p-4 bg-red-900/30 border border-red-500 rounded-lg">
+              <div className="flex items-start gap-3">
+                <XCircle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-red-400 font-bold mb-1">
+                    Invalid Calldata
+                  </div>
+                  <p className="text-sm text-gray-300">
+                    This proposal contains invalid calldata and cannot be queued
+                    or executed. The transaction would fail on-chain.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
           {executedData && (
             <div className="mb-6 p-4 bg-[rgba(26,255,92,0.1)] border border-[#1aff5c] rounded-lg">
               <div className="flex items-start gap-3">
@@ -992,7 +1017,9 @@ export function ProposalDetail() {
             <CardDescription>
               {!isConnected
                 ? "Connect your wallet to queue this proposal"
-                : "This proposal has succeeded and is ready to be queued for execution"}
+                : hasInvalidCalldata
+                  ? "This proposal cannot be queued due to invalid calldata"
+                  : "This proposal has succeeded and is ready to be queued for execution"}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -1001,6 +1028,17 @@ export function ProposalDetail() {
                 <Wallet className="h-12 w-12 mx-auto mb-4 text-gray-600" />
                 <p className="text-gray-400 mb-4">
                   You need to connect your wallet to queue this proposal
+                </p>
+              </div>
+            ) : hasInvalidCalldata ? (
+              <div className="text-center py-8">
+                <XCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
+                <p className="text-red-400 font-bold text-xl mb-2">
+                  Cannot Queue
+                </p>
+                <p className="text-gray-400">
+                  This proposal has invalid calldata and cannot be queued.
+                  Execution would fail on-chain.
                 </p>
               </div>
             ) : (
@@ -1025,18 +1063,20 @@ export function ProposalDetail() {
             <CardDescription>
               {!isConnected
                 ? "Connect your wallet to execute this proposal"
-                : (() => {
-                    const now = Math.floor(Date.now() / 1000);
-                    const eta = parseInt(queuedData.eta_seconds);
-                    const timeRemaining = eta - now;
+                : hasInvalidCalldata
+                  ? "This proposal cannot be executed due to invalid calldata"
+                  : (() => {
+                      const now = Math.floor(Date.now() / 1000);
+                      const eta = parseInt(queuedData.eta_seconds);
+                      const timeRemaining = eta - now;
 
-                    if (timeRemaining > 0) {
-                      const hours = Math.floor(timeRemaining / 3600);
-                      const minutes = Math.floor((timeRemaining % 3600) / 60);
-                      return `This proposal is queued. Execution available in ${hours}h ${minutes}m`;
-                    }
-                    return "This proposal is ready to be executed";
-                  })()}
+                      if (timeRemaining > 0) {
+                        const hours = Math.floor(timeRemaining / 3600);
+                        const minutes = Math.floor((timeRemaining % 3600) / 60);
+                        return `This proposal is queued. Execution available in ${hours}h ${minutes}m`;
+                      }
+                      return "This proposal is ready to be executed";
+                    })()}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -1045,6 +1085,17 @@ export function ProposalDetail() {
                 <Wallet className="h-12 w-12 mx-auto mb-4 text-gray-600" />
                 <p className="text-gray-400 mb-4">
                   You need to connect your wallet to execute this proposal
+                </p>
+              </div>
+            ) : hasInvalidCalldata ? (
+              <div className="text-center py-8">
+                <XCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
+                <p className="text-red-400 font-bold text-xl mb-2">
+                  Cannot Execute
+                </p>
+                <p className="text-gray-400">
+                  This proposal has invalid calldata and cannot be executed.
+                  The transaction would fail on-chain.
                 </p>
               </div>
             ) : (

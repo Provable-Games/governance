@@ -41,3 +41,9 @@ export const CUSTOM_PROPOSAL_TITLES: Record<string, string> = {
   "1433524114456312042611743953357569740895908601465234800270746577866087880958":
     "SURVIVOR Liquidity Proposal",
 };
+
+// Proposal IDs with invalid calldata that cannot be queued/executed
+// These proposals have malformed calldata that will cause execution to fail
+export const INVALID_CALLDATA_PROPOSAL_IDS: string[] = [
+  "1433524114456312042611743953357569740895908601465234800270746577866087880958",
+];

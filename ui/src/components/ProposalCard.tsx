@@ -1,8 +1,9 @@
 import { Badge } from "@/components/ui/badge";
-import { Clock, CheckCircle2, XCircle, Trophy, Flame } from "lucide-react";
+import { Clock, CheckCircle2, XCircle, Trophy, Flame, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { getDelegateProfile } from "@/lib/delegateProfiles";
+import { INVALID_CALLDATA_PROPOSAL_IDS } from "@/lib/constants";
 
 interface ProposalCardProps {
   proposal: {
@@ -25,6 +26,7 @@ export function ProposalCard({ proposal, usernames }: ProposalCardProps) {
   };
 
   const profile = getDelegateProfile(proposal.proposer);
+  const hasInvalidCalldata = INVALID_CALLDATA_PROPOSAL_IDS.includes(proposal.id);
 
   const getStatusBadge = (
     status: "active" | "succeeded" | "failed" | "pending" | "executed" | "quorum_not_met"
@@ -87,8 +89,16 @@ export function ProposalCard({ proposal, usernames }: ProposalCardProps) {
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start gap-3 sm:gap-0">
           <div className="space-y-2 flex-1 w-full sm:w-auto">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {getStatusBadge(proposal.status)}
+              {hasInvalidCalldata && (
+                <Badge
+                  className="flex items-center gap-1 px-2 py-1 transition-colors bg-orange-900/50 text-orange-400 border-orange-600 hover:bg-orange-900/70"
+                >
+                  <AlertTriangle className="h-3 w-3" />
+                  INVALID CALLDATA
+                </Badge>
+              )}
             </div>
             <h3 className="text-lg sm:text-2xl font-['Cinzel'] text-white">
               {proposal.title}
