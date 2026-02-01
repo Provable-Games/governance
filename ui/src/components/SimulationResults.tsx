@@ -135,6 +135,8 @@ export function SimulationResults({
         if (name) names.set(id, name);
       }
       setNftNames(names);
+    }).catch((error) => {
+      console.error("Failed to fetch Ekubo NFT names:", error);
     });
   }, [nftTransfers]);
 
@@ -236,11 +238,11 @@ export function SimulationResults({
             />
             {expandedSections.has("balances") && (
               <div className="mt-2 pl-6 space-y-3">
-                {balanceSummary.map((entry, index) => {
+                {balanceSummary.map((entry) => {
                   const addressName = getContractName(entry.address);
                   return (
                     <div
-                      key={index}
+                      key={entry.address}
                       className="bg-[rgba(0,0,0,0.3)] rounded p-3"
                     >
                       <div className="text-xs font-mono text-gray-400 mb-2">
@@ -281,11 +283,11 @@ export function SimulationResults({
             />
             {expandedSections.has("state") && (
               <div className="mt-2 pl-6 space-y-2 max-h-60 overflow-y-auto">
-                {result.stateDiff.storageDiffs.map((diff, index) => {
+                {result.stateDiff.storageDiffs.map((diff) => {
                   const contractName = getContractName(diff.contractAddress);
                   return (
                     <div
-                      key={index}
+                      key={`${diff.contractAddress}-${diff.key}`}
                       className="bg-[rgba(0,0,0,0.3)] rounded p-3 text-xs font-mono"
                     >
                       <div className="flex items-center gap-2 mb-1">
@@ -397,9 +399,9 @@ export function SimulationResults({
               />
               {expandedSections.has("deployed") && (
                 <div className="mt-2 pl-6 space-y-2">
-                  {result.stateDiff.deployedContracts.map((contract, index) => (
+                  {result.stateDiff.deployedContracts.map((contract) => (
                     <div
-                      key={index}
+                      key={contract.address}
                       className="bg-[rgba(0,0,0,0.3)] rounded p-3 text-xs font-mono"
                     >
                       <div className="flex items-center gap-2 mb-1">

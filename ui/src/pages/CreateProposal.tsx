@@ -196,10 +196,6 @@ export function CreateProposal() {
       const result = await simulateProposal(
         DAO_TREASURY_ADDRESS,
         simulationCalls,
-        [
-          "0x42dd777885ad2c116be96d4d634abc90a26a790ffb5871e037dd5ae7d2ec86b",
-          "0x033068f6539f8e6e6b131e6b2b814e6c34a5224bc66947c47dab9dfee93b35fb",
-        ],
       );
 
       setSimulationResult(result);

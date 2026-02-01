@@ -2,6 +2,7 @@
  * Simulation service client for the governance proposal simulator
  */
 import { findTokenByAddress, formatTokenAmount as formatTokenAmountUtil } from "@/lib/utils/tokenUtils";
+import { DAO_TREASURY_ADDRESS } from "@/lib/constants";
 
 // Types matching the governance-simulator API
 export interface SimulationCall {
@@ -70,7 +71,6 @@ export async function simulateProposal(
   calls: SimulationCall[],
   additionalTokens?: string[],
 ): Promise<SimulationResult> {
-  console.log(calls, timelockAddress);
   const response = await fetch(`${SIMULATOR_API_URL}/simulate`, {
     method: "POST",
     headers: {
@@ -163,8 +163,7 @@ const TRANSFER_SELECTOR =
 // The Katana dev account that stands in for the timelock during simulation
 const KATANA_DEV_ACCOUNT =
   "0x127fd5f1fe78a71f8bcd1fec63e3fe2f0486b6ecd5c86a0466c3a21fa5cfcec";
-const TIMELOCK_ADDRESS =
-  "0x041bb7729efa185f2cab327de0a668886302f1d4969e3edf504c4741648f858b";
+const TIMELOCK_ADDRESS = DAO_TREASURY_ADDRESS;
 
 function normalizeHex(hex: string): string {
   if (!hex.startsWith("0x")) return hex;
@@ -375,7 +374,7 @@ export async function fetchEkuboPositionName(
   tokenId: bigint,
 ): Promise<string | null> {
   try {
-    const url = `https://prod-api.ekubo.org/nft/${EKUBO_CORE_ADDRESS}/0x07b696af58c967c1b14c9dde0ace001720635a660a8e90c565ea459345318b30/${tokenId.toString()}`;
+    const url = `https://prod-api.ekubo.org/nft/${EKUBO_CORE_ADDRESS}/${EKUBO_NFT_ADDRESS}/${tokenId.toString()}`;
     const response = await fetch(url);
     if (!response.ok) return null;
     const data = await response.json();
