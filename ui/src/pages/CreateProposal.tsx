@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,11 +13,13 @@ import {
   Scroll,
   Eye,
   Edit3,
+  PlayCircle,
+  Loader2,
 } from "lucide-react";
 import { useGovernor } from "@/hooks/useGovernor";
 import { useConfetti } from "@/hooks/useConfetti";
 import { type Call, hash } from "starknet";
-import { GOVERNANCE_PARAMS } from "@/lib/constants";
+import { GOVERNANCE_PARAMS, DAO_TREASURY_ADDRESS } from "@/lib/constants";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useAccount } from "@starknet-react/core";
@@ -39,6 +41,8 @@ import {
   renderGenericCall,
 } from "@/components/CallDisplays";
 import { useToast } from "@/hooks/use-toast";
+import { simulateProposal, type SimulationResult } from "@/lib/simulation";
+import { SimulationResults } from "@/components/SimulationResults";
 
 export function CreateProposal() {
   const [description, setDescription] = useState("");
@@ -55,6 +59,16 @@ export function CreateProposal() {
     calldata: [],
   });
   const [calldataInput, setCalldataInput] = useState("");
+
+  // Simulation state
+  const [simulationResult, setSimulationResult] =
+    useState<SimulationResult | null>(null);
+  const [isSimulating, setIsSimulating] = useState(false);
+
+  // Reset simulation when calls change
+  useEffect(() => {
+    setSimulationResult(null);
+  }, [calls]);
 
   const { createProposal } = useGovernor();
   const { fireConfetti } = useConfetti();
@@ -155,6 +169,62 @@ export function CreateProposal() {
             ? error.message
             : "An error occurred while creating the proposal",
       });
+    }
+  };
+
+  const handleSimulate = async () => {
+    if (calls.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No calls to simulate",
+        description: "Add at least one execution call before simulating.",
+      });
+      return;
+    }
+
+    setIsSimulating(true);
+    setSimulationResult(null);
+
+    try {
+      // Convert calls to simulation format
+      const simulationCalls = calls.map((call) => ({
+        to: call.contractAddress,
+        selector: call.entrypoint, // Already hashed when using manual input
+        calldata: call.calldata as string[],
+      }));
+
+      const result = await simulateProposal(
+        DAO_TREASURY_ADDRESS,
+        simulationCalls,
+      );
+
+      setSimulationResult(result);
+
+      if (result.success) {
+        toast({
+          title: "Simulation successful",
+          description: "The proposal would execute successfully on mainnet.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Simulation failed",
+          description:
+            result.revertReason || "The proposal would fail if executed.",
+        });
+      }
+    } catch (error) {
+      console.error("Simulation error:", error);
+      toast({
+        variant: "destructive",
+        title: "Simulation error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to run simulation. Make sure the simulator service is running.",
+      });
+    } finally {
+      setIsSimulating(false);
     }
   };
 
@@ -457,8 +527,8 @@ Brief overview of what this proposal aims to achieve.`}
                     newCall.entrypoint.toLowerCase() === "transfer"
                       ? "For transfer: recipient_address, amount\nExample: 0x123..., 1000000000000000000"
                       : newCall.entrypoint.toLowerCase() === "approve"
-                      ? "For approve: spender_address, amount\nExample: 0x123..., 1000000000000000000"
-                      : "Enter comma-separated values for calldata"
+                        ? "For approve: spender_address, amount\nExample: 0x123..., 1000000000000000000"
+                        : "Enter comma-separated values for calldata"
                   }
                   className="font-mono text-sm bg-[rgba(0,0,0,0.3)] border-[rgb(8,62,34)] focus:border-[#FFE97F]"
                   value={calldataInput}
@@ -586,14 +656,49 @@ Brief overview of what this proposal aims to achieve.`}
             </div>
           </div>
 
+          {/* Simulation Results */}
+          {simulationResult && (
+            <SimulationResults
+              result={simulationResult}
+              onClose={() => setSimulationResult(null)}
+            />
+          )}
+
+          {/* Simulate Button */}
+          <Button
+            variant="outline"
+            className="w-full border-2 border-[#FFE97F] bg-transparent hover:bg-[rgba(255,233,127,0.1)] text-[#FFE97F] text-lg py-6"
+            disabled={calls.length === 0 || isSimulating}
+            onClick={handleSimulate}
+          >
+            {isSimulating ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                SIMULATING...
+              </>
+            ) : (
+              <>
+                <PlayCircle className="mr-2 h-5 w-5" />
+                SIMULATE PROPOSAL
+              </>
+            )}
+          </Button>
+
+          {/* Submit Button */}
           <Button
             className="w-full btn-gold text-lg py-6"
-            disabled={!description || !isConnected}
+            disabled={
+              !description ||
+              !isConnected ||
+              !simulationResult?.success
+            }
             onClick={handleSubmit}
             title={
               !isConnected
                 ? "Please connect your wallet to submit a proposal"
-                : undefined
+                : !simulationResult?.success
+                  ? "A passing simulation is required before submitting"
+                  : undefined
             }
           >
             <Scroll className="mr-2 h-5 w-5" />
@@ -602,6 +707,11 @@ Brief overview of what this proposal aims to achieve.`}
           {!isConnected && (
             <p className="text-sm text-[#FFE97F] text-center">
               Please connect your wallet to submit a proposal
+            </p>
+          )}
+          {isConnected && !simulationResult?.success && calls.length > 0 && (
+            <p className="text-sm text-[#FFE97F] text-center">
+              A passing simulation is required before submitting a proposal
             </p>
           )}
         </div>
