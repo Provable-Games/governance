@@ -29,6 +29,10 @@ export const SELECTOR_TO_NAME: Record<string, string> = {
 export const CONTRACT_NAMES: Record<string, string> = {
   "0x2e0af29598b407c8716b17f6d2795eca1b471413fa03fb145a5e33722184067":
     "Ekubo Positions",
+  "0x7b696af58c967c1b14c9dde0ace001720635a660a8e90c565ea459345318b30":
+    "Ekubo LP NFT",
+  "0x041bb7729efa185f2cab327de0a668886302f1d4969e3edf504c4741648f858b":
+    "DAO Treasury",
 };
 
 /**
