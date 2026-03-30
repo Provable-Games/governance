@@ -140,7 +140,7 @@ router.get('/proposals/:id/votes', async (req, res, next) => {
         support,
         weight::TEXT,
         reason,
-        (SELECT array_agg(p::TEXT) FROM unnest(params) AS p) AS params
+        params
       FROM votes
       WHERE proposal_id::TEXT = $1
       ORDER BY event_id DESC
@@ -149,6 +149,7 @@ router.get('/proposals/:id/votes', async (req, res, next) => {
     // Add hex conversions and weight_sortable
     const rows = result.rows.map(row => ({
       ...row,
+      params: row.params ? JSON.parse(row.params) : null,
       weight_sortable: '0x' + BigInt(row.weight).toString(16).padStart(64, '0'),
       proposal_id_hex: numericToHex(row.proposal_id),
       voter_hex: numericToHex(row.voter),
@@ -178,15 +179,16 @@ router.get('/proposals/:id/calls', async (req, res, next) => {
         call_index,
         to_address::TEXT,
         selector::TEXT,
-        (SELECT array_agg(cd::TEXT) FROM unnest(calldata) AS cd) AS calldata
+        calldata
       FROM proposal_calls
       WHERE proposal_id::TEXT = $1
       ORDER BY call_index ASC
     `, [proposalId]);
 
-    // Add hex conversions
+    // Add hex conversions and parse calldata JSON
     const rows = result.rows.map(row => ({
       ...row,
+      calldata: row.calldata ? JSON.parse(row.calldata) : [],
       proposal_id_hex: numericToHex(row.proposal_id),
       to_address_hex: numericToHex(row.to_address),
       selector_hex: numericToHex(row.selector),
@@ -380,7 +382,7 @@ router.get('/votes/address/:address', async (req, res, next) => {
         support,
         weight::TEXT,
         reason,
-        (SELECT array_agg(p::TEXT) FROM unnest(params) AS p) AS params
+        params
       FROM votes
       WHERE voter::TEXT = $1
       ORDER BY event_id DESC
@@ -389,6 +391,7 @@ router.get('/votes/address/:address', async (req, res, next) => {
     // Add hex conversions and weight_sortable
     const rows = result.rows.map(row => ({
       ...row,
+      params: row.params ? JSON.parse(row.params) : null,
       weight_sortable: '0x' + BigInt(row.weight).toString(16).padStart(64, '0'),
       proposal_id_hex: numericToHex(row.proposal_id),
       voter_hex: numericToHex(row.voter),
