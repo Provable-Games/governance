@@ -11,5 +11,8 @@ RUN npm install
 # Copy source code
 COPY . .
 
-# Default command - will be overridden by docker-compose
+# Generate migrations
+RUN npx drizzle-kit generate
+
+# Default command
 CMD ["npm", "start"]
