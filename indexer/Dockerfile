@@ -14,5 +14,8 @@ COPY . .
 # Generate migrations
 RUN npx drizzle-kit generate
 
+# Build the Apibara indexer
+RUN npx apibara build
+
 # Default command
 CMD ["npm", "start"]
