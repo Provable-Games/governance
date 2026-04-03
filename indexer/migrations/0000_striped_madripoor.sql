@@ -79,6 +79,7 @@ CREATE TABLE "votes" (
 	"params" text
 );
 --> statement-breakpoint
+CREATE UNIQUE INDEX "idx_proposals_proposal_id" ON "proposals" USING btree ("proposal_id");--> statement-breakpoint
 ALTER TABLE "delegate_changed" ADD CONSTRAINT "delegate_changed_event_id_event_keys_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."event_keys"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "delegate_votes_changed" ADD CONSTRAINT "delegate_votes_changed_event_id_event_keys_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."event_keys"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event_keys" ADD CONSTRAINT "event_keys_block_number_blocks_number_fk" FOREIGN KEY ("block_number") REFERENCES "public"."blocks"("number") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -100,7 +101,6 @@ CREATE INDEX "idx_event_keys_transaction_hash" ON "event_keys" USING btree ("tra
 CREATE UNIQUE INDEX "idx_proposal_canceled_proposal_id" ON "proposal_canceled" USING btree ("proposal_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "idx_proposal_executed_proposal_id" ON "proposal_executed" USING btree ("proposal_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "idx_proposal_queued_proposal_id" ON "proposal_queued" USING btree ("proposal_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "idx_proposals_proposal_id" ON "proposals" USING btree ("proposal_id");--> statement-breakpoint
 CREATE INDEX "idx_proposals_proposer" ON "proposals" USING btree ("proposer");--> statement-breakpoint
 CREATE INDEX "idx_votes_proposal_id" ON "votes" USING btree ("proposal_id");--> statement-breakpoint
 CREATE INDEX "idx_votes_voter" ON "votes" USING btree ("voter");--> statement-breakpoint
