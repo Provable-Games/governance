@@ -24,12 +24,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    environment:
-      - NETWORK=${NETWORK:-mainnet}
     env_file:
       - .env.local
-    volumes:
-      - ./src:/app/src:ro
     restart: unless-stopped
 
 volumes:
