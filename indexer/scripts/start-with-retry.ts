@@ -27,7 +27,7 @@ function startIndexer(): Promise<number> {
   return new Promise((resolve) => {
     const startTime = Date.now();
     const passthroughArgs = process.argv.slice(2);
-    const child = spawn("npx", ["apibara", "start", ...passthroughArgs], {
+    const child = spawn("npx", ["apibara", "start", "--indexer", "governance", ...passthroughArgs], {
       stdio: ["inherit", "inherit", "pipe"],
       env: process.env,
     });
