@@ -188,3 +188,16 @@ export const delegateVotesChanged = pgTable(
   },
   (t) => [index("idx_delegate_votes_changed_delegate").on(t.delegate)]
 );
+
+// =============================================================================
+// INDEXER STATE
+// =============================================================================
+
+// Replaces airfoil.checkpoints from @apibara/plugin-drizzle. The indexer
+// reads this in connect:before and writes it in the transform transaction so
+// data and cursor advance atomically.
+export const indexerCursor = pgTable("indexer_cursor", {
+  id: text("id").primaryKey(),
+  orderKey: bigint("order_key", { mode: "bigint" }).notNull(),
+  uniqueKey: text("unique_key"),
+});
