@@ -109,27 +109,12 @@ export default function indexer(runtimeConfig: ApibaraRuntimeConfig) {
           .from(schema.indexerCursor)
           .where(eq(schema.indexerCursor.id, CURSOR_ID))
           .limit(1);
-        console.log(
-          `[Governance Indexer] connect:before — cursor row=${JSON.stringify({
-            orderKey: row?.orderKey?.toString() ?? null,
-            uniqueKey: row?.uniqueKey ?? null,
-          })} request.startingCursor before=${JSON.stringify({
-            orderKey: request.startingCursor?.orderKey?.toString() ?? null,
-            uniqueKey: request.startingCursor?.uniqueKey ?? null,
-          })}`
-        );
         if (row) {
           request.startingCursor = {
             orderKey: row.orderKey,
             uniqueKey: (row.uniqueKey ?? undefined) as `0x${string}` | undefined,
           };
         }
-        console.log(
-          `[Governance Indexer] connect:before — request.startingCursor after=${JSON.stringify({
-            orderKey: request.startingCursor?.orderKey?.toString() ?? null,
-            uniqueKey: request.startingCursor?.uniqueKey ?? null,
-          })}`
-        );
       },
       // Reorg handling: when DNA tells us to roll back, drop everything past
       // the new cursor. ON DELETE CASCADE on event_keys.block_number removes
@@ -177,30 +162,13 @@ export default function indexer(runtimeConfig: ApibaraRuntimeConfig) {
         // Clear any existing rows for this block. Cascading FKs through
         // event_keys remove the corresponding event-table rows so the inserts
         // below can't collide.
-        const deleted = await db
-          .delete(schema.blocks)
-          .where(eq(schema.blocks.number, blockNumber))
-          .returning({ number: schema.blocks.number });
-        const stillThere = await db
-          .select({ number: schema.blocks.number })
-          .from(schema.blocks)
-          .where(eq(schema.blocks.number, blockNumber));
-        console.log(
-          `[Governance Indexer] transform block=${blockNumber} delete-rows=${deleted.length} still-there=${stillThere.length}`
-        );
+        await db.delete(schema.blocks).where(eq(schema.blocks.number, blockNumber));
 
-        try {
-          await db.insert(schema.blocks).values({
-            number: blockNumber,
-            hash: BigInt(blockHash ?? 0).toString(),
-            time: blockTime,
-          });
-        } catch (e) {
-          console.log(
-            `[Governance Indexer] block-insert FAILED block=${blockNumber} hash=${BigInt(blockHash ?? 0).toString()} error=${String(e)}`
-          );
-          throw e;
-        }
+        await db.insert(schema.blocks).values({
+          number: blockNumber,
+          hash: BigInt(blockHash ?? 0).toString(),
+          time: blockTime,
+        });
 
         let eventsProcessed = 0;
 
