@@ -15,12 +15,9 @@
 import { defineIndexer } from "apibara/indexer";
 import { useLogger } from "apibara/plugins";
 import { StarknetStream } from "@apibara/starknet";
-import {
-  drizzle,
-  drizzleStorage,
-  useDrizzleStorage,
-} from "@apibara/plugin-drizzle";
-import { gte, sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { eq, gt } from "drizzle-orm";
+import { Pool } from "pg";
 import type { ApibaraRuntimeConfig } from "apibara/types";
 
 import * as schema from "../src/lib/schema.js";
@@ -36,6 +33,12 @@ import {
   parseDelegateChangedEvent,
   parseDelegateVotesChangedEvent,
 } from "../src/events/votes.js";
+
+// Identifier for our row in the indexer_cursor table. Replaces the
+// "indexer_governance_governance" id that @apibara/plugin-drizzle used to
+// generate from indexerName + identifier — the migration seeds the existing
+// cursor under the new shorter id.
+const CURSOR_ID = "governance";
 
 // Event selectors (starknet_keccak hashes)
 const EVENT_SELECTORS = {
@@ -90,12 +93,48 @@ export default function indexer(runtimeConfig: ApibaraRuntimeConfig) {
   console.log("[Governance Indexer] Stream URL:", streamUrl);
   console.log("[Governance Indexer] Starting Block:", startingBlock.toString());
 
-  const database = drizzle({ schema, connectionString: databaseUrl });
+  const pool = new Pool({ connectionString: databaseUrl });
+  const database = drizzle(pool, { schema });
 
   return defineIndexer(StarknetStream)({
     streamUrl,
     finality: "accepted",
     startingBlock,
+    hooks: {
+      // Resume from the persisted cursor on every connect. Without this, the
+      // stream would always start from `startingBlock`.
+      "connect:before": async ({ request }) => {
+        const [row] = await database
+          .select()
+          .from(schema.indexerCursor)
+          .where(eq(schema.indexerCursor.id, CURSOR_ID))
+          .limit(1);
+        if (row) {
+          request.startingCursor = {
+            orderKey: row.orderKey,
+            uniqueKey: (row.uniqueKey ?? undefined) as `0x${string}` | undefined,
+          };
+        }
+      },
+      // Reorg handling: when DNA tells us to roll back, drop everything past
+      // the new cursor. ON DELETE CASCADE on event_keys.block_number removes
+      // dependent event-table rows. Reset our cursor in the same transaction.
+      "message:invalidate": async ({ message }) => {
+        const cursor = message.cursor;
+        if (!cursor) return;
+        const cursorOrderKey = Number(cursor.orderKey);
+        await database.transaction(async (db) => {
+          await db.delete(schema.blocks).where(gt(schema.blocks.number, cursorOrderKey));
+          await db
+            .update(schema.indexerCursor)
+            .set({
+              orderKey: cursor.orderKey,
+              uniqueKey: cursor.uniqueKey ?? null,
+            })
+            .where(eq(schema.indexerCursor.id, CURSOR_ID));
+        });
+      },
+    },
     filter: {
       events: [
         // Governor contract events
@@ -110,30 +149,8 @@ export default function indexer(runtimeConfig: ApibaraRuntimeConfig) {
         { address: votesTokenAddress as `0x${string}`, keys: [EVENT_SELECTORS.DELEGATE_VOTES_CHANGED] },
       ],
     },
-    plugins: [
-      drizzleStorage({
-        db: database,
-        persistState: true,
-        indexerName: "governance",
-        migrate: { migrationsFolder: "./migrations" },
-        idColumn: {
-          blocks: "number",
-          event_keys: "id",
-          proposals: "event_id",
-          proposal_calls: "proposal_id",
-          proposal_signatures: "proposal_id",
-          proposal_queued: "event_id",
-          proposal_executed: "event_id",
-          proposal_canceled: "event_id",
-          votes: "event_id",
-          delegate_changed: "event_id",
-          delegate_votes_changed: "event_id",
-        },
-      }),
-    ],
-    async transform({ block }) {
+    async transform({ block, endCursor }) {
       const logger = useLogger();
-      const { db } = useDrizzleStorage();
 
       if (!block.header) return;
 
@@ -141,199 +158,218 @@ export default function indexer(runtimeConfig: ApibaraRuntimeConfig) {
       const blockHash = block.header.blockHash;
       const blockTime = block.header.timestamp;
 
-      // Delete any existing data for this block (handles re-processing)
-      await db.delete(schema.blocks).where(gte(schema.blocks.number, blockNumber));
+      await database.transaction(async (db) => {
+        // Clear any existing rows for this block. Cascading FKs through
+        // event_keys remove the corresponding event-table rows so the inserts
+        // below can't collide.
+        await db.delete(schema.blocks).where(eq(schema.blocks.number, blockNumber));
 
-      // Insert block
-      await db.insert(schema.blocks).values({
-        number: blockNumber,
-        hash: BigInt(blockHash ?? 0).toString(),
-        time: blockTime,
-      }).onConflictDoNothing();
+        await db.insert(schema.blocks).values({
+          number: blockNumber,
+          hash: BigInt(blockHash ?? 0).toString(),
+          time: blockTime,
+        });
 
-      let eventsProcessed = 0;
+        let eventsProcessed = 0;
 
-      for (const event of block.events) {
-        const selector = event.keys?.[0];
-        if (!selector) continue;
+        for (const event of block.events) {
+          const selector = event.keys?.[0];
+          if (!selector) continue;
 
-        const txIndex = event.transactionIndex;
-        const evtIndex = event.eventIndexInTransaction;
-        const emitter = BigInt(event.address);
-        const txHash = event.transactionHash;
+          const txIndex = event.transactionIndex;
+          const evtIndex = event.eventIndexInTransaction;
+          const emitter = BigInt(event.address);
+          const txHash = event.transactionHash;
 
-        const eventId = computeEventId(blockNumber, txIndex, evtIndex);
+          const eventId = computeEventId(blockNumber, txIndex, evtIndex);
 
-        // Combine keys (without selector) and data for parsing
-        const keysWithoutSelector = event.keys?.slice(1) || [];
-        const combinedData = [...keysWithoutSelector, ...event.data] as `0x${string}`[];
+          // Combine keys (without selector) and data for parsing
+          const keysWithoutSelector = event.keys?.slice(1) || [];
+          const combinedData = [...keysWithoutSelector, ...event.data] as `0x${string}`[];
 
-        try {
-          // Insert event_keys record
-          const insertEventKey = async () => {
-            await db.insert(schema.eventKeys).values({
-              id: eventId,
-              transactionHash: txHash,
+          try {
+            // Insert event_keys record
+            const insertEventKey = async () => {
+              await db.insert(schema.eventKeys).values({
+                id: eventId,
+                transactionHash: txHash,
+                blockNumber,
+                transactionIndex: txIndex,
+                eventIndex: evtIndex,
+                emitter: emitter.toString(),
+              });
+            };
+
+            switch (selector) {
+              case EVENT_SELECTORS.PROPOSAL_CREATED: {
+                const parsed = parseProposalCreatedEvent(combinedData, 0).value;
+                await insertEventKey();
+                await db.insert(schema.proposals).values({
+                  eventId,
+                  proposalId: parsed.proposal_id.toString(),
+                  proposer: parsed.proposer.toString(),
+                  voteStart: parsed.vote_start,
+                  voteEnd: parsed.vote_end,
+                  description: parsed.description.replaceAll("\u0000", "?"),
+                });
+
+                // Insert calls
+                if (parsed.calls.length > 0) {
+                  await db.insert(schema.proposalCalls).values(
+                    parsed.calls.map((call, ix) => ({
+                      proposalId: parsed.proposal_id.toString(),
+                      callIndex: ix,
+                      toAddress: call.to.toString(),
+                      selector: call.selector.toString(),
+                      calldata: JSON.stringify(call.calldata.map((c) => c.toString())),
+                    }))
+                  );
+                }
+
+                // Insert signatures
+                if (parsed.signatures.length > 0) {
+                  await db.insert(schema.proposalSignatures).values(
+                    parsed.signatures.map((sig, ix) => ({
+                      proposalId: parsed.proposal_id.toString(),
+                      signatureIndex: ix,
+                      signature: JSON.stringify(sig.map((s) => s.toString())),
+                    }))
+                  );
+                }
+
+                logger.info(`ProposalCreated: ${parsed.proposal_id}`);
+                break;
+              }
+
+              case EVENT_SELECTORS.PROPOSAL_QUEUED: {
+                const parsed = parseProposalQueuedEvent(combinedData, 0).value;
+                await insertEventKey();
+                await db.insert(schema.proposalQueued).values({
+                  eventId,
+                  proposalId: parsed.proposal_id.toString(),
+                  etaSeconds: parsed.eta_seconds,
+                });
+                logger.info(`ProposalQueued: ${parsed.proposal_id}`);
+                break;
+              }
+
+              case EVENT_SELECTORS.PROPOSAL_EXECUTED: {
+                const parsed = parseProposalExecutedEvent(combinedData, 0).value;
+                await insertEventKey();
+                await db.insert(schema.proposalExecuted).values({
+                  eventId,
+                  proposalId: parsed.proposal_id.toString(),
+                });
+                logger.info(`ProposalExecuted: ${parsed.proposal_id}`);
+                break;
+              }
+
+              case EVENT_SELECTORS.PROPOSAL_CANCELED: {
+                const parsed = parseProposalCanceledEvent(combinedData, 0).value;
+                await insertEventKey();
+                await db.insert(schema.proposalCanceled).values({
+                  eventId,
+                  proposalId: parsed.proposal_id.toString(),
+                });
+                logger.info(`ProposalCanceled: ${parsed.proposal_id}`);
+                break;
+              }
+
+              case EVENT_SELECTORS.VOTE_CAST: {
+                const parsed = parseVoteCastEvent(combinedData, 0).value;
+                await insertEventKey();
+                await db.insert(schema.votes).values({
+                  eventId,
+                  proposalId: parsed.proposal_id.toString(),
+                  voter: parsed.voter.toString(),
+                  support: parsed.support,
+                  weight: parsed.weight.toString(),
+                  reason: parsed.reason.replaceAll("\u0000", "?"),
+                });
+                logger.info(`VoteCast: proposal=${parsed.proposal_id} voter=${parsed.voter}`);
+                break;
+              }
+
+              case EVENT_SELECTORS.VOTE_CAST_WITH_PARAMS: {
+                const parsed = parseVoteCastWithParamsEvent(combinedData, 0).value;
+                await insertEventKey();
+                await db.insert(schema.votes).values({
+                  eventId,
+                  proposalId: parsed.proposal_id.toString(),
+                  voter: parsed.voter.toString(),
+                  support: parsed.support,
+                  weight: parsed.weight.toString(),
+                  reason: parsed.reason.replaceAll("\u0000", "?"),
+                  params: JSON.stringify(parsed.params.map((p) => p.toString())),
+                });
+                logger.info(`VoteCastWithParams: proposal=${parsed.proposal_id} voter=${parsed.voter}`);
+                break;
+              }
+
+              case EVENT_SELECTORS.DELEGATE_CHANGED: {
+                const parsed = parseDelegateChangedEvent(combinedData, 0).value;
+                await insertEventKey();
+                await db.insert(schema.delegateChanged).values({
+                  eventId,
+                  delegator: parsed.delegator.toString(),
+                  fromDelegate: parsed.from_delegate.toString(),
+                  toDelegate: parsed.to_delegate.toString(),
+                });
+                logger.info(`DelegateChanged: ${parsed.delegator}`);
+                break;
+              }
+
+              case EVENT_SELECTORS.DELEGATE_VOTES_CHANGED: {
+                const parsed = parseDelegateVotesChangedEvent(combinedData, 0).value;
+                await insertEventKey();
+                await db.insert(schema.delegateVotesChanged).values({
+                  eventId,
+                  delegate: parsed.delegate.toString(),
+                  previousVotes: parsed.previous_votes.toString(),
+                  newVotes: parsed.new_votes.toString(),
+                });
+                logger.info(`DelegateVotesChanged: ${parsed.delegate}`);
+                break;
+              }
+
+              default:
+                logger.warn(`Unknown event selector: ${selector}`);
+            }
+
+            eventsProcessed++;
+          } catch (error) {
+            logger.error("Failed to process event", {
+              error: String(error),
               blockNumber,
-              transactionIndex: txIndex,
+              transactionHash: txHash,
               eventIndex: evtIndex,
-              emitter: emitter.toString(),
+              emitter: `0x${emitter.toString(16)}`,
+              selector,
             });
-          };
-
-          switch (selector) {
-            case EVENT_SELECTORS.PROPOSAL_CREATED: {
-              const parsed = parseProposalCreatedEvent(combinedData, 0).value;
-              await insertEventKey();
-              await db.insert(schema.proposals).values({
-                eventId,
-                proposalId: parsed.proposal_id.toString(),
-                proposer: parsed.proposer.toString(),
-                voteStart: parsed.vote_start,
-                voteEnd: parsed.vote_end,
-                description: parsed.description.replaceAll("\u0000", "?"),
-              });
-
-              // Insert calls
-              if (parsed.calls.length > 0) {
-                await db.insert(schema.proposalCalls).values(
-                  parsed.calls.map((call, ix) => ({
-                    proposalId: parsed.proposal_id.toString(),
-                    callIndex: ix,
-                    toAddress: call.to.toString(),
-                    selector: call.selector.toString(),
-                    calldata: JSON.stringify(call.calldata.map((c) => c.toString())),
-                  }))
-                );
-              }
-
-              // Insert signatures
-              if (parsed.signatures.length > 0) {
-                await db.insert(schema.proposalSignatures).values(
-                  parsed.signatures.map((sig, ix) => ({
-                    proposalId: parsed.proposal_id.toString(),
-                    signatureIndex: ix,
-                    signature: JSON.stringify(sig.map((s) => s.toString())),
-                  }))
-                );
-              }
-
-              logger.info(`ProposalCreated: ${parsed.proposal_id}`);
-              break;
-            }
-
-            case EVENT_SELECTORS.PROPOSAL_QUEUED: {
-              const parsed = parseProposalQueuedEvent(combinedData, 0).value;
-              await insertEventKey();
-              await db.insert(schema.proposalQueued).values({
-                eventId,
-                proposalId: parsed.proposal_id.toString(),
-                etaSeconds: parsed.eta_seconds,
-              });
-              logger.info(`ProposalQueued: ${parsed.proposal_id}`);
-              break;
-            }
-
-            case EVENT_SELECTORS.PROPOSAL_EXECUTED: {
-              const parsed = parseProposalExecutedEvent(combinedData, 0).value;
-              await insertEventKey();
-              await db.insert(schema.proposalExecuted).values({
-                eventId,
-                proposalId: parsed.proposal_id.toString(),
-              });
-              logger.info(`ProposalExecuted: ${parsed.proposal_id}`);
-              break;
-            }
-
-            case EVENT_SELECTORS.PROPOSAL_CANCELED: {
-              const parsed = parseProposalCanceledEvent(combinedData, 0).value;
-              await insertEventKey();
-              await db.insert(schema.proposalCanceled).values({
-                eventId,
-                proposalId: parsed.proposal_id.toString(),
-              });
-              logger.info(`ProposalCanceled: ${parsed.proposal_id}`);
-              break;
-            }
-
-            case EVENT_SELECTORS.VOTE_CAST: {
-              const parsed = parseVoteCastEvent(combinedData, 0).value;
-              await insertEventKey();
-              await db.insert(schema.votes).values({
-                eventId,
-                proposalId: parsed.proposal_id.toString(),
-                voter: parsed.voter.toString(),
-                support: parsed.support,
-                weight: parsed.weight.toString(),
-                reason: parsed.reason.replaceAll("\u0000", "?"),
-              });
-              logger.info(`VoteCast: proposal=${parsed.proposal_id} voter=${parsed.voter}`);
-              break;
-            }
-
-            case EVENT_SELECTORS.VOTE_CAST_WITH_PARAMS: {
-              const parsed = parseVoteCastWithParamsEvent(combinedData, 0).value;
-              await insertEventKey();
-              await db.insert(schema.votes).values({
-                eventId,
-                proposalId: parsed.proposal_id.toString(),
-                voter: parsed.voter.toString(),
-                support: parsed.support,
-                weight: parsed.weight.toString(),
-                reason: parsed.reason.replaceAll("\u0000", "?"),
-                params: JSON.stringify(parsed.params.map((p) => p.toString())),
-              });
-              logger.info(`VoteCastWithParams: proposal=${parsed.proposal_id} voter=${parsed.voter}`);
-              break;
-            }
-
-            case EVENT_SELECTORS.DELEGATE_CHANGED: {
-              const parsed = parseDelegateChangedEvent(combinedData, 0).value;
-              await insertEventKey();
-              await db.insert(schema.delegateChanged).values({
-                eventId,
-                delegator: parsed.delegator.toString(),
-                fromDelegate: parsed.from_delegate.toString(),
-                toDelegate: parsed.to_delegate.toString(),
-              });
-              logger.info(`DelegateChanged: ${parsed.delegator}`);
-              break;
-            }
-
-            case EVENT_SELECTORS.DELEGATE_VOTES_CHANGED: {
-              const parsed = parseDelegateVotesChangedEvent(combinedData, 0).value;
-              await insertEventKey();
-              await db.insert(schema.delegateVotesChanged).values({
-                eventId,
-                delegate: parsed.delegate.toString(),
-                previousVotes: parsed.previous_votes.toString(),
-                newVotes: parsed.new_votes.toString(),
-              });
-              logger.info(`DelegateVotesChanged: ${parsed.delegate}`);
-              break;
-            }
-
-            default:
-              logger.warn(`Unknown event selector: ${selector}`);
+            throw error;
           }
-
-          eventsProcessed++;
-        } catch (error) {
-          logger.error("Failed to process event", {
-            error: String(error),
-            blockNumber,
-            transactionHash: txHash,
-            eventIndex: evtIndex,
-            emitter: `0x${emitter.toString(16)}`,
-            selector,
-          });
-          throw error;
         }
-      }
 
-      if (eventsProcessed > 0) {
-        logger.info(`Processed block ${blockNumber} with ${eventsProcessed} events`);
-      }
+        if (eventsProcessed > 0) {
+          logger.info(`Processed block ${blockNumber} with ${eventsProcessed} events`);
+        }
+
+        // Persist cursor in the same transaction as the data so they can never
+        // disagree. Replaces airfoil.checkpoints from @apibara/plugin-drizzle.
+        if (endCursor) {
+          await db.insert(schema.indexerCursor).values({
+            id: CURSOR_ID,
+            orderKey: endCursor.orderKey,
+            uniqueKey: endCursor.uniqueKey ?? null,
+          }).onConflictDoUpdate({
+            target: schema.indexerCursor.id,
+            set: {
+              orderKey: endCursor.orderKey,
+              uniqueKey: endCursor.uniqueKey ?? null,
+            },
+          });
+        }
+      });
     },
   });
 }

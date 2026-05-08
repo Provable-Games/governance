@@ -8,6 +8,13 @@
       "when": 1774875688630,
       "tag": "0000_striped_madripoor",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778237287022,
+      "tag": "0001_remove_drizzle_storage_plugin",
+      "breakpoints": true
     }
   ]
 }

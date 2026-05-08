@@ -5,14 +5,11 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install dependencies — use the committed lockfile so prod and CI match
+RUN npm ci
 
-# Copy source code
+# Copy source code (migrations are committed; no generate step needed)
 COPY . .
-
-# Generate migrations
-RUN npx drizzle-kit generate
 
 # Build the Apibara indexer
 RUN npx apibara build
