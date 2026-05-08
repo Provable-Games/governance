@@ -44,6 +44,12 @@ function numericToHex(value: string | number): string {
   return '0x' + hex.padStart(Math.ceil(hex.length / 2) * 2, '0');
 }
 
+// Addresses are stored as NUMERIC (decimal) but callers pass hex (0x...).
+// BigInt() accepts both, .toString() returns decimal — matches what the indexer wrote.
+function normalizeAddress(value: string): string {
+  return BigInt(value).toString();
+}
+
 // GET /api/governance/proposals
 // Returns all proposals with their current state
 router.get('/proposals', async (req, res, next) => {
@@ -247,7 +253,7 @@ router.get('/delegates', async (req, res, next) => {
 // Returns detailed information about a specific delegate
 router.get('/delegates/:address', async (req, res, next) => {
   try {
-    const address = req.params.address;
+    const address = normalizeAddress(req.params.address);
     const cacheKey = `delegates:${address}`;
     const cached = getCached(cacheKey);
     if (cached) {
@@ -260,7 +266,7 @@ router.get('/delegates/:address', async (req, res, next) => {
         delegate::TEXT,
         new_votes::TEXT AS current_votes
       FROM delegate_votes_changed
-      WHERE delegate::TEXT = $1
+      WHERE delegate = $1::numeric
       ORDER BY event_id DESC
       LIMIT 1
     `, [address]);
@@ -290,7 +296,7 @@ router.get('/delegates/:address', async (req, res, next) => {
 // Returns who an address has delegated to
 router.get('/delegations/:address', async (req, res, next) => {
   try {
-    const address = req.params.address;
+    const address = normalizeAddress(req.params.address);
     const cacheKey = `delegations:${address}`;
     const cached = getCached(cacheKey);
     if (cached) {
@@ -303,7 +309,7 @@ router.get('/delegations/:address', async (req, res, next) => {
         delegator::TEXT,
         to_delegate::TEXT AS current_delegate
       FROM delegate_changed
-      WHERE delegator::TEXT = $1
+      WHERE delegator = $1::numeric
       ORDER BY event_id DESC
       LIMIT 1
     `, [address]);
@@ -367,7 +373,7 @@ router.get('/stats/total-votes', async (req, res, next) => {
 // Returns all votes cast by a specific address
 router.get('/votes/address/:address', async (req, res, next) => {
   try {
-    const address = req.params.address;
+    const address = normalizeAddress(req.params.address);
     const cacheKey = `votes:address:${address}`;
     const cached = getCached(cacheKey);
     if (cached) {
@@ -384,7 +390,7 @@ router.get('/votes/address/:address', async (req, res, next) => {
         reason,
         params
       FROM votes
-      WHERE voter::TEXT = $1
+      WHERE voter = $1::numeric
       ORDER BY event_id DESC
     `, [address]);
 
