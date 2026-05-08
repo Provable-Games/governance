@@ -149,7 +149,7 @@ export default function indexer(runtimeConfig: ApibaraRuntimeConfig) {
         number: blockNumber,
         hash: BigInt(blockHash ?? 0).toString(),
         time: blockTime,
-      });
+      }).onConflictDoNothing();
 
       let eventsProcessed = 0;
 
