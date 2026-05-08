@@ -1,9 +1,8 @@
 [build]
 builder = "dockerfile"
-dockerfilePath = "Dockerfile.railway"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "docker-compose up -d"
 healthcheckPath = "/"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
